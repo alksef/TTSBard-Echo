@@ -4,7 +4,10 @@ import type { ConnectionConfig } from '@/types/settings'
 
 const DEFAULT_CONNECTION_URL = 'http://127.0.0.1:10100/sse'
 
-const props = defineProps<{ open: boolean; connection: ConnectionConfig | null }>()
+const props = withDefaults(
+  defineProps<{ open: boolean; connection: ConnectionConfig | null; saving?: boolean }>(),
+  { saving: false },
+)
 const emit = defineEmits<{ 'update:open': [value: boolean]; save: [config: ConnectionConfig] }>()
 
 const name = ref('')
@@ -13,6 +16,9 @@ const token = ref('')
 const formError = ref<string | null>(null)
 const submitting = ref(false)
 const isEdit = computed(() => props.connection !== null)
+// The parent owns the async IPC mutation and reports it through `saving`;
+// `submitting` covers the synchronous emit itself.
+const locked = computed(() => submitting.value || props.saving)
 
 function reset() {
   name.value = props.connection?.name ?? ''
@@ -24,12 +30,18 @@ function reset() {
 
 watch(() => [props.open, props.connection], () => { if (props.open) void nextTick(reset) }, { immediate: true })
 
+// A failed mutation releases the lock (the parent flips `saving` back) so the
+// user can retry; a successful one closes the dialog via `open`.
+watch(() => props.saving, (now, was) => {
+  if (was && !now && props.open) submitting.value = false
+})
+
 function close() {
-  if (!submitting.value) emit('update:open', false)
+  if (!locked.value) emit('update:open', false)
 }
 
 async function submit() {
-  if (submitting.value) return
+  if (locked.value) return
   const trimmedName = name.value.trim()
   const trimmedUrl = url.value.trim()
   if (!trimmedName) { formError.value = 'Введите название подключения'; return }
@@ -56,9 +68,9 @@ async function submit() {
       enabled: props.connection?.enabled ?? true,
       access_token: token.value.trim() || tokenFromUrl || undefined,
     })
-    // The parent owns the async IPC mutation. Keep the dialog open until the
-    // parent closes it, but allow retry if that mutation fails.
-    submitting.value = false
+    // The parent owns the async IPC mutation. Keep the dialog open and locked
+    // until the parent closes it (success) or releases `saving` (failure,
+    // retry allowed).
   } catch (reason) {
     formError.value = reason instanceof Error ? reason.message : String(reason)
     submitting.value = false
@@ -76,8 +88,8 @@ async function submit() {
           <label>Токен доступа <span>(необязательно)</span><input v-model="token" type="password" autocomplete="off" placeholder="Токен для авторизации" /></label>
           <p v-if="formError" class="form-error">{{ formError }}</p>
           <footer class="dialog-actions">
-            <button class="secondary-action" type="button" @click="close">Отмена</button>
-            <button class="primary-action" type="submit" :disabled="submitting">{{ isEdit ? 'Сохранить' : 'Добавить' }}</button>
+            <button class="secondary-action" type="button" :disabled="locked" @click="close">Отмена</button>
+            <button class="primary-action" type="submit" :disabled="locked">{{ isEdit ? 'Сохранить' : 'Добавить' }}</button>
           </footer>
         </form>
       </section>

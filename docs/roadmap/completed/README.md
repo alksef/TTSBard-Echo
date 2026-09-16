@@ -20,3 +20,10 @@
 Завершён 2026-09-14: push- и ручной CI, release gate по тегу и тестовый
 prerelease `v0.1.1` проверены в GitHub Actions, ссылки на прогоны — в
 [completion note](008-reproducible-ci-and-release-gate.md).
+
+- [009 — Frontend regression safety](009-frontend-regression-safety.md)
+
+Завершён 2026-09-14: Vitest + Vue Test Utils, 72 поведенческих теста
+критических composables и компонентов, два исправленных дефекта (утечка
+listeners в `useAppSettings`, отсутствие реальной защиты от double submit),
+шесть мутационных проверок — в [completion note](009-frontend-regression-safety.md).

@@ -20,6 +20,7 @@ const {
 const dialogOpen = ref(false)
 const editingConnection = ref<ConnectionConfig | null>(null)
 const busyId = ref<string | null>(null)
+const saving = ref(false)
 const actionError = ref<string | null>(null)
 
 const visibleError = computed(() => error.value || actionError.value)
@@ -46,13 +47,22 @@ function openEdit(config: ConnectionConfig) {
 }
 
 async function save(config: ConnectionConfig) {
-  if (editingConnection.value) {
-    await update(config.id, config)
-  } else {
-    await add(config)
+  if (saving.value) return
+  saving.value = true
+  try {
+    if (editingConnection.value) {
+      await update(config.id, config)
+    } else {
+      await add(config)
+    }
+    dialogOpen.value = false
+    editingConnection.value = null
+  } catch (reason) {
+    // Keep the dialog open with the entered values so the user can retry.
+    actionError.value = reason instanceof Error ? reason.message : String(reason)
+  } finally {
+    saving.value = false
   }
-  dialogOpen.value = false
-  editingConnection.value = null
 }
 
 async function toggleConnection(id: string, status: string) {
@@ -145,6 +155,7 @@ function statusLabel(status: string, errorMessage?: string) {
       v-if="!floating"
       v-model:open="dialogOpen"
       :connection="editingConnection"
+      :saving="saving"
       @save="save"
     />
   </section>

@@ -8,7 +8,9 @@
     "build": "vue-tsc --noEmit && vite build",
     "version": "node scripts/set-version.cjs",
     "tauri": "tauri",
-    "test": "node scripts/contract-checker.js all",
+    "test": "npm run test:contracts && npm run test:unit",
+    "test:contracts": "node scripts/contract-checker.js all",
+    "test:unit": "vitest run",
     "check:ipc": "node scripts/contract-checker.js ipc",
     "check:settings": "node scripts/contract-checker.js settings"
   },
@@ -20,8 +22,11 @@
   "devDependencies": {
     "@tauri-apps/cli": "^2",
     "@vitejs/plugin-vue": "^6.0.4",
+    "@vue/test-utils": "^2.5.0",
+    "happy-dom": "^20.14.5",
     "typescript": "~5.9.3",
     "vite": "^8.0.0",
+    "vitest": "^5.0.0",
     "vue-tsc": "^3.2.5"
   }
 }

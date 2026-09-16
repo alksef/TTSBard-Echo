@@ -97,8 +97,15 @@ export function createAppSettings(): AppSettingsContext {
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
-  let cleanupListeners: (() => void) | null = null
   let reloadRequested = false
+
+  // Registered synchronously during setup so scope disposal actually captures
+  // listeners that resolve later (async onScopeDispose would be a no-op).
+  const unlistenFns: Array<() => void> = []
+  const disposeListeners = () => {
+    unlistenFns.splice(0).forEach(fn => fn())
+  }
+  onScopeDispose(disposeListeners)
 
   /**
    * Wait for backend to be ready
@@ -177,50 +184,34 @@ export function createAppSettings(): AppSettingsContext {
   }
 
   /**
-   * Setup event listeners with auto-cleanup
+   * Setup event listeners; cleanup is owned by onScopeDispose/disposeListeners.
    */
   async function setupEventListeners() {
-    const unlistenFns: Array<() => void> = []
-
-    // Register cleanup handler synchronously
-    onScopeDispose(() => {
-      unlistenFns.splice(0).forEach(fn => fn())
-    })
-
-    // Setup listeners and collect cleanup functions
     unlistenFns.push(await listen('settings-changed', reload))
     unlistenFns.push(await listen<string>('theme-changed', ({ payload }) => {
       if (payload === 'dark' || payload === 'light') applyTheme(payload)
     }))
 
-    const unlistenBackendReady = await listen('backend-ready', () => {
+    unlistenFns.push(await listen('backend-ready', () => {
       console.log('[useAppSettings] Received backend-ready event')
       if (!settings.value) {
         load()
       }
-    })
-    unlistenFns.push(unlistenBackendReady)
-
-    return () => {
-      // Return empty function - cleanup is handled by onScopeDispose
-    }
+    }))
   }
 
   // Initial load
   load()
 
   // Setup event listeners with cleanup
-  setupEventListeners().then((cleanup) => {
-    cleanupListeners = cleanup
-    onScopeDispose(cleanup)
-  })
+  void setupEventListeners()
 
   return {
     settings,
     isLoading,
     error,
     reload,
-    cleanup: () => cleanupListeners?.()
+    cleanup: disposeListeners,
   }
 }
 

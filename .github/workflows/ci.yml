@@ -67,7 +67,10 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - run: npm test
+      - name: Contract checks (IPC + settings)
+        run: npm run test:contracts
+      - name: Frontend unit tests
+        run: npm run test:unit
       - run: npm run build
 
   test-rust:
