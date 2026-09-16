@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { AppWindow, LogOut, Minus, Mouse, X } from 'lucide-vue-next'
+import { AppWindow, Minus, Mouse, X } from 'lucide-vue-next'
 import { useWindowsSettings } from '@/composables/useAppSettings'
 import type { FloatingVisibilityPayload } from '@/types'
 
@@ -72,10 +72,6 @@ async function close() {
   await getCurrentWindow().close()
 }
 
-async function exitApp() {
-  await invoke('quit_app')
-}
-
 async function startDrag(event: MouseEvent) {
   if (event.button === 0) await getCurrentWindow().startDragging()
 }
@@ -108,9 +104,6 @@ onUnmounted(() => unlistenFns.splice(0).forEach(unlisten => unlisten()))
       </button>
       <button class="titlebar-button" aria-label="Свернуть" title="Свернуть" @mousedown.stop @click="minimize">
         <Minus :size="15" />
-      </button>
-      <button class="titlebar-button close" aria-label="Выйти из Echo" title="Выйти из Echo" @mousedown.stop @click="exitApp">
-        <LogOut :size="15" />
       </button>
       <button class="titlebar-button close" aria-label="Скрыть в трей" title="Скрыть в трей" @mousedown.stop @click="close">
         <X :size="15" />

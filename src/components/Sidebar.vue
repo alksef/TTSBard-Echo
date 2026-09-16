@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
 import { APP_VERSION } from '../version'
 import {
   Globe,
   Settings,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  LogOut
 } from 'lucide-vue-next'
 
 type Panel = 'connections' | 'settings'
@@ -39,6 +41,7 @@ function setPanel(panel: Panel) {
 // Collapse state with localStorage persistence
 const STORAGE_KEY = 'sidebar-collapsed'
 const isCollapsed = ref(false)
+const quitPending = ref(false)
 
 onMounted(() => {
   const saved = localStorage.getItem(STORAGE_KEY)
@@ -70,6 +73,17 @@ const sidebarGroups: SidebarGroup[] = [
 
 function toggleCollapse() {
   isCollapsed.value = !isCollapsed.value
+}
+
+async function quitApp() {
+  if (quitPending.value) return
+  quitPending.value = true
+  try {
+    await invoke('quit_app')
+  } catch (error) {
+    quitPending.value = false
+    console.error('Failed to quit application:', error)
+  }
 }
 </script>
 
@@ -113,6 +127,16 @@ function toggleCollapse() {
 
     <div class="sidebar-footer">
       <div v-if="!isCollapsed" class="version-info">{{ APP_VERSION }}</div>
+      <button
+        class="sidebar-button quit-button"
+        :disabled="quitPending"
+        :title="isCollapsed ? 'Выход' : undefined"
+        aria-label="Выход"
+        @click="quitApp"
+      >
+        <LogOut :size="20" class="sidebar-icon" />
+        <span v-if="!isCollapsed" class="sidebar-button-label">Выход</span>
+      </button>
     </div>
   </aside>
 </template>
@@ -319,6 +343,11 @@ function toggleCollapse() {
 .quit-button:hover {
   background: rgba(var(--rgb-danger), 0.12);
   color: var(--color-danger);
+}
+
+.quit-button:disabled {
+  cursor: wait;
+  opacity: 0.5;
 }
 
 .sidebar-collapsed .version-info {
