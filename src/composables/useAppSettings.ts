@@ -162,7 +162,7 @@ export function createAppSettings(): AppSettingsContext {
       const data = convertBackendDto(backendData)
       settings.value = data
 
-      console.log('[useAppSettings] Settings loaded:', data)
+      console.log('[useAppSettings] Settings loaded')
     } catch (e) {
       console.error('[useAppSettings] Failed to load settings:', e)
       error.value = e instanceof Error ? e.message : String(e)

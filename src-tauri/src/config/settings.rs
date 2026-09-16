@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -178,9 +178,12 @@ pub struct AppSettings {
 
 impl AppSettings {
     pub fn validate(&self) -> Result<()> {
-        // Validate each connection
+        let mut connection_ids = HashSet::with_capacity(self.connections.len());
         for connection in &self.connections {
             connection.validate()?;
+            if !connection_ids.insert(connection.id.as_str()) {
+                anyhow::bail!("Duplicate connection id: {}", connection.id);
+            }
         }
         Ok(())
     }
@@ -408,13 +411,23 @@ impl SettingsManager {
 
     pub fn remove_connection(&self, id: &str) -> Result<()> {
         let mut settings = self.load();
+        let previous_len = settings.connections.len();
         settings.connections.retain(|c| c.id != id);
+        if settings.connections.len() == previous_len {
+            anyhow::bail!("Connection not found: {id}");
+        }
         self.save(&settings)
     }
 
     pub fn update_connection(&self, id: &str, updated: ConnectionConfig) -> Result<()> {
         // Validate the updated connection
         updated.validate()?;
+        if updated.id != id {
+            anyhow::bail!(
+                "Connection id cannot be changed from {id} to {}",
+                updated.id
+            );
+        }
 
         let mut settings = self.load();
         if let Some(conn) = settings.connections.iter_mut().find(|c| c.id == id) {
@@ -517,6 +530,48 @@ mod tests {
             cache: Arc::new(RwLock::new(initial)),
         };
         (manager, config_dir)
+    }
+
+    #[test]
+    fn duplicate_connection_ids_are_rejected_without_changing_state() {
+        let (manager, config_dir) = test_manager();
+        manager
+            .add_connection(connection_with_token("same-id", None))
+            .unwrap();
+
+        let error = manager
+            .add_connection(connection_with_token("same-id", None))
+            .unwrap_err();
+
+        assert!(error.to_string().contains("Duplicate connection id"));
+        assert_eq!(manager.load().connections.len(), 1);
+        std::fs::remove_dir_all(config_dir).unwrap();
+    }
+
+    #[test]
+    fn connection_id_cannot_change_during_update() {
+        let (manager, config_dir) = test_manager();
+        manager
+            .add_connection(connection_with_token("original", None))
+            .unwrap();
+
+        let error = manager
+            .update_connection("original", connection_with_token("replacement", None))
+            .unwrap_err();
+
+        assert!(error.to_string().contains("cannot be changed"));
+        assert_eq!(manager.load().connections[0].id, "original");
+        std::fs::remove_dir_all(config_dir).unwrap();
+    }
+
+    #[test]
+    fn removing_an_unknown_connection_returns_an_error() {
+        let (manager, config_dir) = test_manager();
+
+        let error = manager.remove_connection("missing").unwrap_err();
+
+        assert!(error.to_string().contains("Connection not found"));
+        std::fs::remove_dir_all(config_dir).unwrap();
     }
 
     fn leftover_temp_files(config_dir: &PathBuf) -> bool {

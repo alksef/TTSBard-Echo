@@ -69,6 +69,7 @@ export function useConnections(): {
   let unlistenFns: UnlistenFn[] = []
   let subscribed = false
   let disposed = false
+  let reloadRequest = 0
 
   const connections = computed(() => configs.value.map((config) => ({
     ...config,
@@ -84,20 +85,23 @@ export function useConnections(): {
   }
 
   async function reload() {
+    const request = ++reloadRequest
     loading.value = true
-    error.value = null
+    if (request === reloadRequest) error.value = null
     try {
       const [nextConfigs, snapshot] = await Promise.all([
         invoke<ConnectionConfig[]>('get_connections'),
         invoke<ConnectionRuntimeSnapshotDto[]>('get_connection_runtime_snapshot'),
       ])
-      configs.value = nextConfigs
-      applySnapshot(snapshot.map(mapConnectionRuntimeSnapshot))
+      if (request === reloadRequest) {
+        configs.value = nextConfigs
+        applySnapshot(snapshot.map(mapConnectionRuntimeSnapshot))
+      }
     } catch (reason) {
-      error.value = normalizeConnectionError(reason)
+      if (request === reloadRequest) error.value = normalizeConnectionError(reason)
       throw reason
     } finally {
-      loading.value = false
+      if (request === reloadRequest) loading.value = false
     }
   }
 

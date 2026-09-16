@@ -12,6 +12,7 @@ import {
   invokeRejects,
   invokeReturns,
   listen,
+  onInvoke,
   tauriListenerCount,
 } from '@/test/helpers/tauri'
 import { connectionConfig, runtimeSnapshotDto } from '@/test/helpers/fixtures'
@@ -167,6 +168,25 @@ describe('useConnections manual reload', () => {
     await expect(result.reload()).rejects.toBe('nope')
     expect(result.loading.value).toBe(false)
     expect(result.error.value).toBe('nope')
+  })
+
+  it('does not let an older response overwrite a newer reload', async () => {
+    const { result } = await setupConnections()
+    let resolveOld!: (value: unknown) => void
+    const oldResponse = new Promise((resolve) => { resolveOld = resolve })
+    onInvoke('get_connections', () => oldResponse)
+    const olderReload = result.reload()
+    await flushPromises()
+
+    onInvoke('get_connections', () => [c2])
+    const newerReload = result.reload()
+    await newerReload
+    expect(result.configs.value).toEqual([c2])
+
+    resolveOld([c1])
+    await olderReload
+    expect(result.configs.value).toEqual([c2])
+    expect(result.loading.value).toBe(false)
   })
 })
 

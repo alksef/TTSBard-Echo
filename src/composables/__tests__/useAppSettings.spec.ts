@@ -31,6 +31,27 @@ afterEach(() => {
 })
 
 describe('backend readiness', () => {
+  it('never writes the settings payload or access token to the console', async () => {
+    const sentinel = 'secret-console-sentinel'
+    const dto = backendSettingsDto('dark')
+    dto.connections = [{
+      id: 'secret-connection',
+      name: 'Private',
+      url: 'https://example.com/sse',
+      enabled: true,
+      access_token: sentinel,
+    }]
+    invokeReturns('get_all_app_settings', dto)
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    withSetup(() => createAppSettings())
+    await flushPromises()
+
+    const output = log.mock.calls.flat().map(String).join(' ')
+    expect(output).not.toContain(sentinel)
+    expect(output).not.toContain('secret-connection')
+  })
+
   it('loads settings as soon as the backend reports ready', async () => {
     const { result } = withSetup(() => createAppSettings())
     await flushPromises()

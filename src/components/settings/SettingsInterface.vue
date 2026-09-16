@@ -56,7 +56,7 @@ onMounted(() => { void loadAppearance() })
 
 <template>
   <div class="settings-interface">
-    <StatusMessage :message="statusMessage" :type="statusType" />
+    <StatusMessage :message="statusMessage" :type="statusType" @dismiss="statusMessage = ''" />
     <section class="settings-section">
       <div class="theme-selector">
         <label class="theme-option" :class="{ active: selectedTheme === 'dark' }"><input v-model="selectedTheme" type="radio" value="dark" @change="setTheme" /><Moon :size="16" /><span>Тёмная</span></label>

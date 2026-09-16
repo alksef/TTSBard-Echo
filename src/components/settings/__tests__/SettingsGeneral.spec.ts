@@ -4,7 +4,7 @@ import { ref } from 'vue'
 
 import SettingsGeneral from '@/components/settings/SettingsGeneral.vue'
 import { appSettingsDto } from '@/test/helpers/fixtures'
-import { invokeCalls, invokePending, invokeRejects } from '@/test/helpers/tauri'
+import { invokeCalls, invokePending, invokeRejects, invokeReturns } from '@/test/helpers/tauri'
 import { APP_SETTINGS_KEY, type AppSettingsContext } from '@/types'
 
 vi.mock('@tauri-apps/api/core', async () => await import('@/test/helpers/tauri'))
@@ -51,5 +51,31 @@ describe('hide on minimize setting', () => {
 
     expect((checkbox.element as HTMLInputElement).checked).toBe(true)
     expect(wrapper.text()).toContain('write failed')
+  })
+})
+
+describe('general setting persistence', () => {
+  it('renders a successful save as success', async () => {
+    invokeReturns('set_logging_enabled', null)
+    const wrapper = mountSettings()
+    const checkbox = wrapper.findAll('input[type="checkbox"]')[1]
+
+    await checkbox.trigger('change')
+    await flushPromises()
+
+    expect(wrapper.get('.status-message').classes()).toContain('success')
+  })
+
+  it('restores the capture setting when persistence fails', async () => {
+    invokeRejects('set_exclude_from_capture', new Error('capture write failed'))
+    const wrapper = mountSettings()
+    const checkbox = wrapper.findAll('input[type="checkbox"]')[2]
+
+    expect((checkbox.element as HTMLInputElement).checked).toBe(false)
+    await checkbox.trigger('change')
+    await flushPromises()
+
+    expect((checkbox.element as HTMLInputElement).checked).toBe(false)
+    expect(wrapper.text()).toContain('capture write failed')
   })
 })

@@ -131,10 +131,16 @@ impl AppState {
                 match sender.try_send(event) {
                     Ok(()) => {}
                     Err(tokio::sync::mpsc::error::TrySendError::Full(event)) => {
-                        warn!("Event channel is full, dropping event: {:?}", event);
+                        warn!(
+                            event = event_log_name(&event),
+                            "Event channel is full, dropping event"
+                        );
                     }
                     Err(tokio::sync::mpsc::error::TrySendError::Closed(event)) => {
-                        warn!("Event channel is closed, dropping event: {:?}", event);
+                        warn!(
+                            event = event_log_name(&event),
+                            "Event channel is closed, dropping event"
+                        );
                     }
                 }
             }
@@ -230,6 +236,13 @@ impl AppState {
     pub fn is_backend_ready(&self) -> bool {
         self.backend_ready.load(Ordering::SeqCst)
     }
+}
+
+/// Content-free event identifier for diagnostics. `AppEvent` variants may
+/// carry user messages or typing previews, so their `Debug` output is never a
+/// safe logging surface.
+fn event_log_name(event: &AppEvent) -> &'static str {
+    event.to_tauri_event()
 }
 
 /* ==========================================================================
@@ -357,6 +370,19 @@ mod tests {
     use super::*;
     use crate::events::ConnectionStatus;
     use std::collections::HashMap;
+
+    #[test]
+    fn event_queue_diagnostic_never_contains_user_text() {
+        let sentinel = "private-message-sentinel";
+        for event in [
+            AppEvent::MessageReceived("conn-1".into(), sentinel.into()),
+            AppEvent::TypingChanged("conn-1".into(), true, Some(sentinel.into())),
+        ] {
+            let diagnostic = event_log_name(&event);
+            assert!(!diagnostic.contains(sentinel));
+            assert!(matches!(diagnostic, "message-received" | "typing-changed"));
+        }
+    }
 
     fn connections() -> Arc<RwLock<HashMap<String, ConnectionState>>> {
         Arc::new(RwLock::new(HashMap::new()))
