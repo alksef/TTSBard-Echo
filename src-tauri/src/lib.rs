@@ -141,6 +141,7 @@ pub fn run() {
             commands::settings::set_toggle_window_hotkey,
             // Settings - General
             commands::settings::set_exclude_from_capture,
+            commands::settings::set_hide_on_minimize,
             commands::settings::set_message_clear_interval,
             // Windows
             commands::windows::show_floating_window,
@@ -177,6 +178,29 @@ pub fn run() {
                             }
                         }
                     }
+                    tauri::WindowEvent::Resized(_) => match window.is_minimized() {
+                        Ok(true) => {
+                            let hide_on_minimize = window
+                                .try_state::<state::AppState>()
+                                .map(|state| {
+                                    state
+                                        .settings_manager
+                                        .read()
+                                        .load()
+                                        .general
+                                        .hide_on_minimize
+                                })
+                                .unwrap_or(false);
+                            if hide_on_minimize {
+                                tracing::info!("Main window minimized - hiding from taskbar");
+                                let _ = window.hide();
+                            }
+                        }
+                        Ok(false) => {}
+                        Err(error) => {
+                            tracing::warn!(%error, "Failed to read minimized window state");
+                        }
+                    },
                     _ => {}
                 }
             } else if window.label() == "floating" {

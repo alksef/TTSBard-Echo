@@ -160,17 +160,16 @@ describe('click-through', () => {
 })
 
 describe('window controls and cleanup', () => {
-  it('minimizes and closes to tray without exposing the full exit action', async () => {
+  it('exposes only minimize without close or full exit actions', async () => {
     const { wrapper } = mountTitlebar()
     await flushPromises()
     const buttons = wrapper.findAll('button')
 
-    expect(buttons).toHaveLength(4)
+    expect(buttons).toHaveLength(3)
     await buttons[2].trigger('click')
-    await buttons[3].trigger('click')
 
     expect(windowApi.minimize).toHaveBeenCalledTimes(1)
-    expect(windowApi.close).toHaveBeenCalledTimes(1)
+    expect(windowApi.close).toHaveBeenCalledTimes(0)
     expect(invokeCalls('quit_app')).toBe(0)
   })
 

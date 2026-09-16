@@ -77,6 +77,7 @@ impl From<HotkeySettingsDto> for crate::config::settings::HotkeySettings {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GeneralSettingsDto {
     pub exclude_from_capture: bool,
+    pub hide_on_minimize: bool,
     pub theme: Option<String>,
     pub message_clear_interval_seconds: u32,
 }
@@ -93,6 +94,7 @@ impl From<crate::config::settings::GeneralSettings> for GeneralSettingsDto {
 
         Self {
             exclude_from_capture: s.exclude_from_capture,
+            hide_on_minimize: s.hide_on_minimize,
             theme: theme_str,
             message_clear_interval_seconds: s.message_clear_interval_seconds,
         }
@@ -109,6 +111,7 @@ impl From<GeneralSettingsDto> for crate::config::settings::GeneralSettings {
 
         Self {
             exclude_from_capture: dto.exclude_from_capture,
+            hide_on_minimize: dto.hide_on_minimize,
             theme,
             message_clear_interval_seconds: dto.message_clear_interval_seconds,
         }

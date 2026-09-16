@@ -12,17 +12,23 @@ const statusType = ref<'success' | 'error' | 'info' | 'warning'>('info')
 const logLevelOptions = ['trace', 'debug', 'info', 'warn', 'error']
 const selectedLogLevel = ref('info')
 const messageClearInterval = ref(30)
+const hideOnMinimize = ref(false)
+const hideOnMinimizeSaving = ref(false)
 watch(loggingSettings, settings => { if (settings) selectedLogLevel.value = settings.level }, { immediate: true })
-watch(generalSettings, settings => { if (settings) messageClearInterval.value = settings.message_clear_interval_seconds }, { immediate: true })
+watch(generalSettings, settings => { if (settings) { messageClearInterval.value = settings.message_clear_interval_seconds; hideOnMinimize.value = settings.hide_on_minimize } }, { immediate: true })
 function showStatus(message: string, type: 'success' | 'error' | 'info' | 'warning') { statusMessage.value = message; statusType.value = type === 'success' ? 'warning' : type }
 async function update(command: string, args: Record<string, unknown>, success: string) { try { await invoke(command, args); showStatus(success, 'success') } catch (error) { showStatus(`Не удалось сохранить настройку: ${String(error)}`, 'error') } }
 async function setMessageClearInterval() { const previous = generalSettings.value?.message_clear_interval_seconds ?? 30; const seconds = Math.round(messageClearInterval.value); if (!Number.isFinite(seconds) || seconds < 1 || seconds > 3600) { messageClearInterval.value = previous; showStatus('Интервал должен быть от 1 до 3600 секунд', 'error'); return }; busy.value = true; try { await invoke('set_message_clear_interval', { seconds }); showStatus('Интервал очистки сообщений обновлён', 'success') } catch (error) { messageClearInterval.value = previous; showStatus(`Не удалось сохранить интервал: ${String(error)}`, 'error') } finally { busy.value = false } }
 const busy = ref(false)
+async function toggleHideOnMinimize() { if (hideOnMinimizeSaving.value) return; const previous = hideOnMinimize.value; hideOnMinimize.value = !previous; hideOnMinimizeSaving.value = true; try { await invoke('set_hide_on_minimize', { value: hideOnMinimize.value }); showStatus('Поведение сворачивания обновлено', 'success') } catch (error) { hideOnMinimize.value = previous; showStatus(`Не удалось сохранить настройку: ${String(error)}`, 'error') } finally { hideOnMinimizeSaving.value = false } }
 </script>
 
 <template>
   <div class="settings-general">
     <StatusMessage :message="statusMessage" :type="statusType" @dismiss="statusMessage = ''" />
+    <section class="settings-section">
+      <div class="setting-row"><label class="setting-label checkbox-label"><input :checked="hideOnMinimize" :disabled="hideOnMinimizeSaving" type="checkbox" class="checkbox-input" @change="toggleHideOnMinimize" /><span>Скрывать с панели задач при сворачивании</span></label><span class="setting-hint">Если выключено, свёрнутое окно остаётся на панели задач. Приложение продолжает работать в обоих режимах.</span></div>
+    </section>
     <section class="settings-section">
       <div class="setting-row"><label class="setting-label checkbox-label"><input :checked="loggingSettings?.enabled" type="checkbox" class="checkbox-input" @change="update('set_logging_enabled', { enabled: ($event.target as HTMLInputElement).checked }, 'Логирование обновлено')" /><span>Включить логирование</span></label></div>
       <div v-if="loggingSettings?.enabled" class="setting-group"><div class="setting-row"><label class="inline-label" for="log-level">Уровень:</label><select id="log-level" :value="selectedLogLevel" class="level-select" @change="selectedLogLevel = ($event.target as HTMLSelectElement).value; update('set_logging_level', { level: selectedLogLevel }, 'Уровень логирования сохранён')"><option v-for="level in logLevelOptions" :key="level" :value="level">{{ level.toUpperCase() }}</option></select></div></div>

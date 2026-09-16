@@ -185,6 +185,21 @@ pub async fn set_exclude_from_capture(
     Ok(())
 }
 
+/// Choose whether minimizing the main window also hides it from the taskbar.
+#[tauri::command]
+pub async fn set_hide_on_minimize(
+    value: bool,
+    app_state: State<'_, AppState>,
+) -> Result<(), String> {
+    persist_blocking(app_state.settings_manager.clone(), move |m| {
+        m.set_hide_on_minimize(value)
+    })
+    .await?;
+    app_state.emit_event(AppEvent::GeneralChanged);
+    emit_settings_changed(&app_state.app_handle);
+    Ok(())
+}
+
 /// Set how long the latest received message remains visible.
 #[tauri::command]
 pub async fn set_message_clear_interval(

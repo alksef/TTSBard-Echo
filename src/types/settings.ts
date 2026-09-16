@@ -93,6 +93,7 @@ export interface HotkeySettingsDto {
     ========================================================================== */
 export interface GeneralSettingsDto {
   exclude_from_capture: boolean
+  hide_on_minimize: boolean
   theme?: Theme
   message_clear_interval_seconds: number
 }

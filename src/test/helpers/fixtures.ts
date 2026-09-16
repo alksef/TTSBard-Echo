@@ -58,7 +58,7 @@ export function appSettingsDto(theme: Theme = 'dark'): AppSettingsDto {
     connections: [connectionConfig('c1')],
     logging: { enabled: false, level: 'info', module_levels: {} },
     hotkeys: { enabled: true },
-    general: { exclude_from_capture: false, theme, message_clear_interval_seconds: 15 },
+    general: { exclude_from_capture: false, hide_on_minimize: false, theme, message_clear_interval_seconds: 15 },
     windows: {
       main: {},
       floating: {

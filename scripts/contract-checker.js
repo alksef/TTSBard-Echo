@@ -35,7 +35,7 @@ function checkSettings() {
   const types = read('src/types/settings.ts')
   const fields = [
     ['LoggingSettingsDto', ['enabled', 'level', 'module_levels']],
-    ['GeneralSettingsDto', ['exclude_from_capture', 'theme', 'message_clear_interval_seconds']],
+    ['GeneralSettingsDto', ['exclude_from_capture', 'hide_on_minimize', 'theme', 'message_clear_interval_seconds']],
     ['ConnectionConfig', ['id', 'name', 'url', 'enabled', 'access_token']],
     ['FloatingWindowDto', ['x', 'y', 'opacity', 'bg_color', 'clickthrough']],
   ]

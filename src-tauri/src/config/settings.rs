@@ -137,6 +137,8 @@ pub struct GeneralSettings {
     #[serde(default)]
     pub exclude_from_capture: bool,
     #[serde(default)]
+    pub hide_on_minimize: bool,
+    #[serde(default)]
     pub theme: Option<Theme>,
     #[serde(default = "default_message_clear_interval_seconds")]
     pub message_clear_interval_seconds: u32,
@@ -150,6 +152,7 @@ impl Default for GeneralSettings {
     fn default() -> Self {
         Self {
             exclude_from_capture: false,
+            hide_on_minimize: false,
             theme: None,
             message_clear_interval_seconds: default_message_clear_interval_seconds(),
         }
@@ -470,6 +473,12 @@ impl SettingsManager {
         self.save(&settings)
     }
 
+    pub fn set_hide_on_minimize(&self, value: bool) -> Result<()> {
+        let mut settings = self.load();
+        settings.general.hide_on_minimize = value;
+        self.save(&settings)
+    }
+
     pub fn set_message_clear_interval_seconds(&self, seconds: u32) -> Result<()> {
         if !(1..=3600).contains(&seconds) {
             return Err(anyhow::anyhow!(
@@ -518,6 +527,35 @@ mod tests {
                 .to_string_lossy()
                 .ends_with(".tmp")
         })
+    }
+
+    #[test]
+    fn hide_on_minimize_defaults_to_false_for_existing_settings() {
+        let mut value = serde_json::to_value(AppSettings::with_defaults()).unwrap();
+        value["general"]
+            .as_object_mut()
+            .unwrap()
+            .remove("hide_on_minimize");
+
+        let settings: AppSettings = serde_json::from_value(value).unwrap();
+
+        assert!(!settings.general.hide_on_minimize);
+    }
+
+    #[test]
+    fn hide_on_minimize_round_trips_through_settings_manager() {
+        let (manager, config_dir) = test_manager();
+
+        manager.set_hide_on_minimize(true).unwrap();
+
+        assert!(manager.load().general.hide_on_minimize);
+        let persisted: AppSettings = serde_json::from_str(
+            &std::fs::read_to_string(config_dir.join("settings.json")).unwrap(),
+        )
+        .unwrap();
+        assert!(persisted.general.hide_on_minimize);
+
+        std::fs::remove_dir_all(config_dir).unwrap();
     }
 
     #[test]

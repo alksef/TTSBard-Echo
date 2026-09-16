@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { AppWindow, Minus, Mouse, X } from 'lucide-vue-next'
+import { AppWindow, Minus, Mouse } from 'lucide-vue-next'
 import { useWindowsSettings } from '@/composables/useAppSettings'
 import type { FloatingVisibilityPayload } from '@/types'
 
@@ -68,10 +68,6 @@ async function minimize() {
   await getCurrentWindow().minimize()
 }
 
-async function close() {
-  await getCurrentWindow().close()
-}
-
 async function startDrag(event: MouseEvent) {
   if (event.button === 0) await getCurrentWindow().startDragging()
 }
@@ -105,9 +101,6 @@ onUnmounted(() => unlistenFns.splice(0).forEach(unlisten => unlisten()))
       <button class="titlebar-button" aria-label="Свернуть" title="Свернуть" @mousedown.stop @click="minimize">
         <Minus :size="15" />
       </button>
-      <button class="titlebar-button close" aria-label="Скрыть в трей" title="Скрыть в трей" @mousedown.stop @click="close">
-        <X :size="15" />
-      </button>
     </div>
   </header>
 </template>
@@ -131,5 +124,4 @@ onUnmounted(() => unlistenFns.splice(0).forEach(unlisten => unlisten()))
 .titlebar-button:hover { background: var(--color-bg-field-hover); color: var(--color-text-primary); }
 .titlebar-button.active { color: var(--color-accent); }
 .titlebar-button:disabled { cursor: wait; opacity: .5; }
-.titlebar-button.close:hover { background: var(--color-danger); color: var(--color-text-white); }
 </style>

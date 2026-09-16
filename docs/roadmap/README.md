@@ -9,7 +9,7 @@
 - `rejected/` — рассмотренные, но отклонённые направления.
 
 Программа подготовки интерфейса к альфа-релизу `v0.1.0`, roadmap 008,
-roadmap 009, roadmap 010, roadmap 011, roadmap 013, roadmap 014 и roadmap 015 завершены и находятся в
+roadmap 009, roadmap 010, roadmap 011, roadmap 013, roadmap 014, roadmap 015 и roadmap 016 завершены и находятся в
 [completed](completed/README.md).
 
 ## Текущая граница продукта
