@@ -18,6 +18,8 @@ const appearance = ref<FloatingAppearanceDto>({
 const unlistenFns: UnlistenFn[] = []
 let appearanceRequest = 0
 let resizeObserver: ResizeObserver | undefined
+let fitInProgress = false
+let fitAgain = false
 const connectionCount = computed(() => connections.value.length)
 
 function applyAppearance() {
@@ -48,23 +50,42 @@ async function loadTheme() {
   }
 }
 async function fitToContent() {
-  await nextTick()
-  const content = document.querySelector('.connection-list')
-  if (!content) return
-  const height = Math.max(64, Math.ceil(content.getBoundingClientRect().height))
-  const window = getCurrentWindow()
-  const physicalSize = await window.innerSize()
-  const scaleFactor = await window.scaleFactor()
-  const width = Math.max(300, Math.round(physicalSize.width / scaleFactor))
-  // Preserve the user's manually selected width; long content wraps and grows
-  // vertically instead of turning the overlay into a wide banner.
-  await window.setSize(new LogicalSize(width, Math.min(2000, height)))
+  if (fitInProgress) {
+    fitAgain = true
+    return
+  }
+
+  fitInProgress = true
+  try {
+    do {
+      fitAgain = false
+      await nextTick()
+      const content = document.querySelector('.connection-list')
+      if (!content) return
+
+      const window = getCurrentWindow()
+      const physicalSize = await window.innerSize()
+      const scaleFactor = await window.scaleFactor()
+      const width = Math.max(300, Math.round(physicalSize.width / scaleFactor))
+      const currentHeight = Math.round(physicalSize.height / scaleFactor)
+      const contentHeight = Math.max(64, Math.min(2000, Math.ceil(content.getBoundingClientRect().height)))
+
+      // Horizontal resizing is user-controlled; vertical resizing is always
+      // corrected back to the height required by the current content.
+      if (Math.abs(currentHeight - contentHeight) > 1) {
+        await window.setSize(new LogicalSize(width, contentHeight))
+      }
+    } while (fitAgain)
+  } finally {
+    fitInProgress = false
+  }
 }
 watch(connectionCount, fitToContent, { immediate: true })
 async function drag(event: MouseEvent) {
   if (event.button === 0) await getCurrentWindow().startDragging()
 }
 onMounted(async () => {
+  const window = getCurrentWindow()
   unlistenFns.push(await listen('floating-appearance-update', () => { void reloadAppearance() }))
   unlistenFns.push(await listen('clickthrough-changed', () => { void reloadAppearance() }))
   unlistenFns.push(await listen<Theme>('theme-changed', ({ payload }) => {
@@ -73,6 +94,7 @@ onMounted(async () => {
   }))
   await Promise.all([reloadAppearance(), loadTheme()])
   await fitToContent()
+  unlistenFns.push(await window.onResized(() => { void fitToContent() }))
   const content = document.querySelector('.connection-list')
   if (content) {
     resizeObserver = new ResizeObserver(() => { void fitToContent() })

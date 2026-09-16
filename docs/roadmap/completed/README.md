@@ -1,46 +1,19 @@
 # Завершённые roadmap
 
-Программа UI refresh завершена при подготовке альфа-релиза `v0.1.0`:
-
-- [000 — UI refresh program](000-ui-refresh-program.md)
-- [001 — Design system and application shell](001-design-system-and-application-shell.md)
-- [002 — Connections domain and UX](002-connections-domain-and-ux.md)
-- [003 — Interface settings](003-interface-settings.md)
-- [004 — Floating window lifecycle and UI](004-floating-window-lifecycle-and-ui.md)
-- [005 — Echo icon and brand assets](005-echo-icon-and-brand-assets.md)
-- [006 — UI contracts and verification](006-ui-contracts-and-verification.md)
-- [007 — Documentation structure and actualization](007-documentation-structure-and-actualization.md)
+- [000 — UI refresh program](000-ui-refresh-program.md) — связал этапы подготовки v0.1.0, чтобы интерфейс, контракты и документация развивались в согласованном порядке.
+- [001 — Design system and application shell](001-design-system-and-application-shell.md) — собрал единый каркас и визуальные токены, чтобы главное окно оставалось компактным и последовательным.
+- [002 — Connections domain and UX](002-connections-domain-and-ux.md) — оформил добавление, изменение, удаление и runtime-состояние подключений, чтобы Echo мог независимо обслуживать несколько TTSBard.
+- [003 — Interface settings](003-interface-settings.md) — добавил только настройки внешнего вида и поведения окон, чтобы пользователь мог адаптировать overlay без изменения его назначения.
+- [004 — Floating window lifecycle and UI](004-floating-window-lifecycle-and-ui.md) — реализовал показ, скрытие, позицию, click-through и авторазмер, чтобы сообщения были видны поверх других приложений.
+- [005 — Echo icon and brand assets](005-echo-icon-and-brand-assets.md) — подготовил и подключил иконки, чтобы приложение корректно распознавалось в окне, tray и сборке.
+- [006 — UI contracts and verification](006-ui-contracts-and-verification.md) — добавил проверки IPC/settings и Rust-тесты, чтобы изменения frontend и backend не расходились незаметно.
+- [007 — Documentation structure and actualization](007-documentation-structure-and-actualization.md) — разделил пользовательскую, инженерную и справочную документацию, чтобы актуальные правила находились без исторических планов.
 
 Краткий итог проверок находится в [completion note](001-007-completion-note.md).
 
 ## Программа после v0.1.0
 
-- [008 — Воспроизводимый CI и release gate](008-reproducible-ci-and-release-gate.md)
-
-Завершён 2026-09-14: push- и ручной CI, release gate по тегу и тестовый
-prerelease `v0.1.1` проверены в GitHub Actions, ссылки на прогоны — в
-[completion note](008-reproducible-ci-and-release-gate.md).
-
-- [009 — Frontend regression safety](009-frontend-regression-safety.md)
-
-Завершён 2026-09-14: Vitest + Vue Test Utils, 72 поведенческих теста
-критических composables и компонентов, два исправленных дефекта (утечка
-listeners в `useAppSettings`, отсутствие реальной защиты от double submit),
-шесть мутационных проверок — в [completion note](009-frontend-regression-safety.md).
-
-- [010 — Целостность и безопасность настроек](010-settings-integrity-and-secrets.md)
-
-Завершён 2026-09-15: атомарная запись конфигов с `.bak` и восстановлением
-после повреждения, схема `schema_version` с одноразовой DPAPI-миграцией
-токена ([ADR-0024](../../decisions/0024-roadmap-010-secret-storage.md)),
-redaction-аудит с сентинел-тестами, ACL на конфиг-файлы, CSP прод/dev;
-ручная E2E на реальном конфиге v0.1.0 — в
-[completion note](010-settings-integrity-and-secrets.md).
-
-- [011 — Диагностика и надёжность SSE](011-sse-observability-and-reliability.md)
-
-Завершён 2026-09-15: 7 нормализованных категорий ошибок, структурный
-статус-пейлоад с attempt/next-retry, кооперативная отмена connect/retry,
-проба endpoint до сохранения, санитизованные логи с correlation id,
-allowlist-экспорт диагностики, локальный SSE fixture (13 интеграционных
-тестов); ручная E2E 9/9 — в [completion note](011-sse-observability-and-reliability.md).
+- [008 — Воспроизводимый CI и release gate](008-reproducible-ci-and-release-gate.md) — закрепил зависимости и заблокировал релиз непроверенного commit, чтобы сборка основной ветки и тега была воспроизводимой.
+- [009 — Frontend regression safety](009-frontend-regression-safety.md) — добавил поведенческие тесты компонентов и composables, чтобы ловить утечки listeners, stale async state и повторную отправку формы.
+- [010 — Целостность и безопасность настроек](010-settings-integrity-and-secrets.md) — внедрил атомарную запись, восстановление, DPAPI, ACL и CSP, чтобы сбой записи или доступ к файлу не раскрывал token и не ломал конфигурацию.
+- [011 — Диагностика и надёжность SSE](011-sse-observability-and-reliability.md) — нормализовал ошибки, retry/cancel и проверку endpoint, чтобы подключение к нескольким TTSBard было управляемым и диагностируемым.

@@ -205,6 +205,24 @@ describe('FloatingApp appearance and theme sync', () => {
     expect(size.width).toBeGreaterThanOrEqual(300)
     expect(createdResizeObservers()).toHaveLength(1)
     expect(createdResizeObservers()[0].observe).toHaveBeenCalled()
+    expect(windowApi.onResized).toHaveBeenCalledOnce()
+    wrapper.unmount()
+  })
+
+  it('preserves a manually resized width but restores content-driven height', async () => {
+    const wrapper = await mountFloatingApp()
+    windowApi.setSize.mockClear()
+    windowApi.innerSize.mockResolvedValue({ width: 860, height: 500 })
+
+    const resizeHandler = windowApi.onResized.mock.calls[0][0]
+    resizeHandler({ payload: { width: 860, height: 500 } })
+    await flushPromises()
+
+    expect(windowApi.setSize).toHaveBeenCalled()
+    const lastCall = windowApi.setSize.mock.calls[windowApi.setSize.mock.calls.length - 1]
+    const size = lastCall[0] as { width: number; height: number }
+    expect(size.width).toBe(860)
+    expect(size.height).toBe(64)
     wrapper.unmount()
   })
 })
