@@ -37,7 +37,7 @@ Release workflow запускается для push тега `v*` и вручн�
 ```powershell
 node scripts/set-version.cjs 0.14.0
 npm run build
-cargo check --manifest-path src-tauri/Cargo.toml
+scripts/cargo.ps1 --% check --manifest-path src-tauri/Cargo.toml --locked
 ```
 
 После зелёного push-запуска CI создайте и отправьте тег, указывающий на тот же

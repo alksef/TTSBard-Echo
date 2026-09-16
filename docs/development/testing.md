@@ -7,8 +7,8 @@ npm test              # contract checks + frontend unit tests
 npm run test:contracts
 npm run test:unit
 npm run build         # vue-tsc type check (includes test files) + vite build
-cargo check --manifest-path src-tauri/Cargo.toml
-cargo test --manifest-path src-tauri/Cargo.toml
+scripts/cargo.ps1 --% check --manifest-path src-tauri/Cargo.toml --locked
+scripts/cargo.ps1 --% test --manifest-path src-tauri/Cargo.toml --locked --all-targets
 ```
 
 ## Contract checks
@@ -46,5 +46,14 @@ Test files are type-checked by `vue-tsc` as part of `npm run build`.
 
 ## Rust
 
-`cargo test --manifest-path src-tauri/Cargo.toml` (add `--locked` to match
-CI). Windows WebView behavior remains a manual smoke-test surface.
+On Windows use `scripts/cargo.ps1` so the checks run with the MSVC toolchain
+prepared by the repository. Bare `cargo` is used by CI and non-Windows clean
+runners. Windows WebView behavior remains a manual smoke-test surface.
+
+The complete local Rust gate is:
+
+```powershell
+scripts/cargo.ps1 --% fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+scripts/cargo.ps1 --% clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings
+scripts/cargo.ps1 --% test --manifest-path src-tauri/Cargo.toml --locked --all-targets
+```

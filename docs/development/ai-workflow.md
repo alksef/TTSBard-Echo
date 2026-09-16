@@ -156,13 +156,13 @@ $openCodeExit = $LASTEXITCODE
 | Изменение | Проверка |
 |---|---|
 | TypeScript/Vue | `npm test` при затронутых тестах, затем `npm run build` |
-| Rust | целевые тесты и проверки через `cargo` с `--manifest-path src-tauri/Cargo.toml` |
+| Rust | целевые тесты и проверки через `scripts/cargo.ps1` на Windows, с `--manifest-path src-tauri/Cargo.toml` |
 | UI/runtime | релевантный ручной сценарий и состояния error/cancel/retry |
 | Packaging/native deps | `npm run tauri build --debug`, при необходимости release |
 
 На Windows task-файлы и независимая проверка не должны вызывать bare `cargo`:
-Локальные wrappers могут использоваться разработчиком на своей машине, но не
-являются частью публичного репозитория или обязательного процесса сборки.
+канонический tracked wrapper `scripts/cargo.ps1` подготавливает MSVC toolchain.
+CI и non-Windows clean runners продолжают использовать bare `cargo`.
 
 Review проводится по постоянному
 [шаблону code review](./templates/code-review.md). Он задаёт базовый профиль

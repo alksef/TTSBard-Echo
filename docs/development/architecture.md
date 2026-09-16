@@ -38,10 +38,26 @@ This document describes the technical architecture of the TTS Bard Echo applicat
 - `tray::show_main_window` is the common non-toggle path used by tray actions
   and repeated launches to restore, show and focus the existing main window.
 
+### Window lifecycle
+
+- `src/components/AppTitlebar.vue` owns the visible minimize action; full exit
+  is exposed by `src/components/Sidebar.vue` and tray actions.
+- `src-tauri/src/lib.rs` owns native main-window events. On minimize it reads
+  `general.hide_on_minimize`: `false` keeps the minimized taskbar entry and
+  `true` additionally hides the window to tray.
+- `src-tauri/src/tray.rs::show_main_window` is the only restore path for tray
+  and repeated-launch activation: unminimize, show, then focus.
+- Floating height is content-owned by
+  `src/components/floating/FloatingApp.vue`; equal min/max height constraints
+  prevent native vertical resize while width remains user-controlled.
+- Persisted fields follow the settings boundary documented in
+  [Configuration](configuration.md), and window-specific focused tests live
+  next to `AppTitlebar`, `SettingsGeneral`, and `FloatingApp`.
+
 ### Server-Sent Events (SSE) 
 - Client implementation in Rust (`src-tauri/src/connections/client.rs`)
 - Message handling via Tauri events system (`AppEvent::MessageReceived`)  
-- Frontend processing via Vue composables (`useSSEHandler.ts`)
+- Frontend snapshot/event processing via `src/composables/useConnections.ts`
 
 ### Connection Management
 - Connection configuration and lifecycle management
@@ -59,12 +75,17 @@ Modern modular CSS architecture:
 
 ```
 src/
-├── components/          # UI Components
-├── composables/         # Vue Composition API logic  
-├── connections/         # Connection and integration logic
+├── components/          # UI components, including floating and settings
+├── composables/         # Settings and connection state/event owners
+├── lib/                 # Small presentation helpers
 ├── styles/              # CSS and theme files
-├── types/               # TypeScript type definitions
-└── utils/               # Utility functions
+├── test/                # Shared frontend test doubles and fixtures
+└── types/               # TypeScript contracts
+
+src-tauri/src/
+├── commands/            # Tauri command adapters
+├── config/              # Persisted settings, DTOs and validation
+└── connections/         # SSE client and connection manager
 
 docs/ 
 ├── user/                # User documentation

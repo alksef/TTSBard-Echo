@@ -1,6 +1,6 @@
 # Configuration
 
-Settings are stored under the platform config directory in the `ttsbard-echo` application folder: `settings.json` (connections and app settings) and `windows.json` (main/floating positions, floating opacity, background color, click-through). Connection settings include endpoint/name/enabled state and an optional access token.
+Settings are stored under the platform config directory in the `ttsbard-echo` application folder: `settings.json` (connections and app settings) and `windows.json` (main/floating positions, floating opacity, background color, click-through). Connection settings include endpoint/name/enabled state and an optional access token. `general.hide_on_minimize` defaults to `false`; when enabled, minimizing the main window also hides it from the taskbar.
 
 Defaults and serde behavior are defined in `src-tauri/src/config/` and parity is checked by `npm run check:settings`.
 

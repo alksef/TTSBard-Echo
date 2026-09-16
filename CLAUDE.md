@@ -29,7 +29,7 @@ npm run dev
 ```powershell
 npm run build
 npm test
-cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+scripts/cargo.ps1 --% fmt --manifest-path src-tauri/Cargo.toml --all -- --check
 ```
 
 `npm test` проверяет IPC- и settings-контракты. Полная Tauri-сборка выполняется на Windows:
@@ -37,6 +37,9 @@ cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 ```powershell
 npm run tauri build
 ```
+
+На Windows остальные Rust-проверки также запускаются через `scripts/cargo.ps1`,
+чтобы использовать MSVC toolchain, а не случайный `gnullvm` из `PATH`.
 
 ## Версионирование
 
