@@ -57,10 +57,6 @@ impl SecretAccessToken {
     pub fn into_inner(self) -> Option<String> {
         self.0
     }
-
-    pub fn is_none(&self) -> bool {
-        self.0.is_none()
-    }
 }
 
 impl std::fmt::Debug for SecretAccessToken {
@@ -963,7 +959,7 @@ mod tests {
         // No panic, no failed startup: the connection reads as "no token",
         // which the existing edit form turns into a normal re-entry flow.
         let settings = result.unwrap();
-        assert!(settings.connections[0].access_token.is_none());
+        assert!(settings.connections[0].access_token.as_deref().is_none());
 
         // The stored value stays on disk — loading does not destroy it, so
         // moving the file back to the original profile recovers the token.
@@ -1006,8 +1002,8 @@ mod tests {
         let loaded = SettingsManager::load_initial(&config_dir).unwrap();
         // Only the undecryptable token is affected.
         assert_eq!(loaded.theme, Theme::Light);
-        assert!(loaded.connections[0].access_token.is_none());
-        assert!(loaded.connections[1].access_token.is_none());
+        assert!(loaded.connections[0].access_token.as_deref().is_none());
+        assert!(loaded.connections[1].access_token.as_deref().is_none());
 
         std::fs::remove_dir_all(config_dir).unwrap();
     }
@@ -1060,11 +1056,11 @@ mod tests {
         // and a field missing entirely (pre-token era files) all parse.
         let base = r#"{"id":"conn-x","name":"X","url":"https://example.com","enabled":true"#;
         let parsed: ConnectionConfig = serde_json::from_str(&format!("{base}}}")).unwrap();
-        assert!(parsed.access_token.is_none());
+        assert!(parsed.access_token.as_deref().is_none());
 
         let parsed: ConnectionConfig =
             serde_json::from_str(&format!("{base},\"access_token\":null}}")).unwrap();
-        assert!(parsed.access_token.is_none());
+        assert!(parsed.access_token.as_deref().is_none());
 
         let parsed: ConnectionConfig =
             serde_json::from_str(&format!("{base},\"access_token\":\"{TOKEN_SENTINEL}\"}}"))

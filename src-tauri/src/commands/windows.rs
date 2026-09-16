@@ -52,30 +52,6 @@ pub async fn toggle_floating_window(
     Ok(FloatingVisibilityDto { visible })
 }
 
-/// Get all window settings (legacy; not on the frontend path).
-#[tauri::command]
-pub async fn get_window_settings(
-    app_state: State<'_, AppState>,
-) -> Result<WindowsSettings, String> {
-    Ok(app_state.windows_manager.read().load())
-}
-
-/// Set floating window position.
-#[tauri::command]
-pub async fn set_floating_window_position(
-    x: Option<i32>,
-    y: Option<i32>,
-    app_handle: AppHandle,
-    app_state: State<'_, AppState>,
-) -> Result<(), String> {
-    persist_blocking(app_state.windows_manager.clone(), move |m| {
-        m.set_floating_position(x, y)
-    })
-    .await?;
-    let _ = app_handle.emit("window-position-changed", (x, y));
-    Ok(())
-}
-
 #[tauri::command]
 pub async fn reset_floating_window_position(
     app_handle: AppHandle,

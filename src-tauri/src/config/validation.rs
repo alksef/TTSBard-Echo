@@ -6,13 +6,6 @@ pub fn validate_opacity(opacity: u8) -> u8 {
     opacity.clamp(MIN_OPACITY, MAX_OPACITY)
 }
 
-pub fn validate_theme(theme: &str) -> Result<String, String> {
-    match theme.to_lowercase().as_str() {
-        "dark" | "light" => Ok(theme.to_lowercase()),
-        _ => Err("Invalid theme. Must be 'dark' or 'light'".to_string()),
-    }
-}
-
 pub fn validate_hex_color(color: &str) -> Result<String, String> {
     let value = color.trim();
     let valid = value.len() == 7

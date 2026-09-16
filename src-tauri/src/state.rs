@@ -18,7 +18,6 @@ const TYPING_TIMEOUT_SECS: u64 = 5;
 
 #[derive(Debug, Clone)]
 pub struct ConnectionState {
-    pub id: String,
     pub status: ConnectionStatus,
     pub last_message: Option<String>,
     last_message_generation: u64,
@@ -40,9 +39,8 @@ pub struct ConnectionState {
 impl ConnectionState {
     /// A fresh state with no runtime detail (no message, no typing) whose
     /// retry/error fields are derived from `status`.
-    pub fn new(id: impl Into<String>, status: ConnectionStatus) -> Self {
+    pub fn new(_id: impl Into<String>, status: ConnectionStatus) -> Self {
         let mut state = Self {
-            id: id.into(),
             status: ConnectionStatus::Disconnected,
             last_message: None,
             last_message_generation: 0,
@@ -231,10 +229,6 @@ impl AppState {
 
     pub fn set_backend_ready(&self) {
         self.backend_ready.store(true, Ordering::SeqCst);
-    }
-
-    pub fn is_backend_ready(&self) -> bool {
-        self.backend_ready.load(Ordering::SeqCst)
     }
 }
 

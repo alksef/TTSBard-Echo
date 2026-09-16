@@ -32,27 +32,11 @@ impl EventHandler {
                 debug!("Clickthrough changed to: {}", enabled);
                 let _ = self.app_handle.emit(name, enabled);
             }
-            AppEvent::ShowFloatingWindow => {
-                debug!("Show floating window");
-                let _ = self.app_handle.emit(name, ());
-            }
-            AppEvent::HideFloatingWindow => {
-                debug!("Hide floating window");
-                let _ = self.app_handle.emit(name, ());
-            }
-            AppEvent::FloatingWindowToggled => {
-                debug!("Floating window toggled");
-                let _ = self.app_handle.emit(name, ());
-            }
             AppEvent::FloatingVisibilityChanged(visible) => {
                 debug!("Floating visibility changed to: {}", visible);
                 let _ = self
                     .app_handle
                     .emit(name, serde_json::json!({ "visible": visible }));
-            }
-            AppEvent::UpdateFloatingText(text) => {
-                debug!("Update floating text: {}", text);
-                let _ = self.app_handle.emit(name, text);
             }
             AppEvent::ConnectionsChanged => {
                 debug!("Connections changed");
@@ -96,24 +80,12 @@ impl EventHandler {
                 debug!("Logging changed");
                 let _ = self.app_handle.emit(name, ());
             }
-            AppEvent::AppearanceChanged => {
-                debug!("Appearance changed");
-                let _ = self.app_handle.emit(name, ());
-            }
             AppEvent::HotkeysChanged => {
                 debug!("Hotkeys changed");
                 let _ = self.app_handle.emit(name, ());
             }
             AppEvent::GeneralChanged => {
                 debug!("General settings changed");
-                let _ = self.app_handle.emit(name, ());
-            }
-            AppEvent::BackendReady => {
-                debug!("Backend ready");
-                let _ = self.app_handle.emit(name, ());
-            }
-            AppEvent::AppQuit => {
-                debug!("App quit");
                 let _ = self.app_handle.emit(name, ());
             }
         }

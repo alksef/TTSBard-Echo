@@ -106,15 +106,6 @@ impl WindowsManager {
         self.cache.read().clone()
     }
 
-    pub fn save(&self, settings: &WindowsSettings) -> Result<()> {
-        let mut cache = self.cache.write();
-        let windows_file = self.config_dir.join("windows.json");
-        let content = serde_json::to_string_pretty(settings)?;
-        atomic::write_atomic(&windows_file, &content)?;
-        *cache = settings.clone();
-        Ok(())
-    }
-
     /// Update the cached snapshot and its persisted representation as one
     /// transaction. Holding the cache write lock across the read/modify/write
     /// cycle prevents concurrent position, visibility, and appearance saves
@@ -134,16 +125,8 @@ impl WindowsManager {
         Ok(())
     }
 
-    pub fn get_floating_opacity(&self) -> u8 {
-        self.cache.read().floating.opacity
-    }
-
     pub fn set_floating_opacity(&self, value: u8) -> Result<()> {
         self.update(|settings| settings.floating.opacity = validate_opacity(value))
-    }
-
-    pub fn get_floating_bg_color(&self) -> String {
-        self.cache.read().floating.bg_color.clone()
     }
 
     pub fn set_floating_bg_color(&self, color: String) -> Result<()> {

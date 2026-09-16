@@ -1,12 +1,3 @@
-// The command surface and frontend contracts are still converging (see
-// `.work/ai/reviews/review-002-2026-08-04.md`): several getter commands,
-// `AppEvent` variants, and manager helpers are defined ahead of being wired
-// into `generate_handler!` / `event_loop`. Silence crate-wide dead-code so the
-// `-D warnings` gate stays meaningful for real lints without churning these
-// reserved APIs one `#[allow]` at a time. Revisit once the connect/disconnect
-// and floating-window flows are fully wired.
-#![allow(dead_code)]
-
 mod commands;
 mod config;
 mod connections;

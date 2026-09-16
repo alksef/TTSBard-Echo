@@ -6,14 +6,6 @@ use crate::state::AppState;
 use tauri::{Manager, State};
 use tracing::info;
 
-/// Get all settings (legacy shape — raw `AppSettings`, not the DTO).
-#[tauri::command]
-pub async fn get_all_settings(
-    app_state: State<'_, AppState>,
-) -> Result<crate::config::settings::AppSettings, String> {
-    Ok(app_state.settings_manager.read().load())
-}
-
 /// Get all application settings in a single DTO call.
 #[tauri::command]
 pub async fn get_all_app_settings(
@@ -37,46 +29,6 @@ pub async fn get_settings(app_state: State<'_, AppState>) -> Result<AppSettingsD
 #[tauri::command]
 pub fn get_theme(app_state: State<'_, AppState>) -> Theme {
     app_state.settings_manager.read().load().theme
-}
-
-/// Get logging status.
-#[tauri::command]
-pub fn get_logging_enabled(app_state: State<'_, AppState>) -> bool {
-    app_state.settings_manager.read().load().logging.enabled
-}
-
-/// Get current logging level.
-#[tauri::command]
-pub fn get_logging_level(app_state: State<'_, AppState>) -> String {
-    app_state.settings_manager.read().load().logging.level
-}
-
-/// Get hotkey status.
-#[tauri::command]
-pub fn get_hotkey_enabled(app_state: State<'_, AppState>) -> bool {
-    app_state.settings_manager.read().load().hotkeys.enabled
-}
-
-/// Get toggle window hotkey.
-#[tauri::command]
-pub fn get_toggle_window_hotkey(app_state: State<'_, AppState>) -> Option<String> {
-    app_state
-        .settings_manager
-        .read()
-        .load()
-        .hotkeys
-        .toggle_window
-}
-
-/// Get exclude-from-capture status.
-#[tauri::command]
-pub fn get_exclude_from_capture(app_state: State<'_, AppState>) -> bool {
-    app_state
-        .settings_manager
-        .read()
-        .load()
-        .general
-        .exclude_from_capture
 }
 
 /// Set theme.

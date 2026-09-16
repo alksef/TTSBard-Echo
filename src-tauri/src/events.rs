@@ -94,11 +94,7 @@ pub enum AppEvent {
     // Floating Window
     FloatingAppearanceChanged,
     ClickthroughChanged(bool),
-    ShowFloatingWindow,
-    HideFloatingWindow,
-    FloatingWindowToggled,
     FloatingVisibilityChanged(bool),
-    UpdateFloatingText(String),
 
     // Connections
     ConnectionsChanged,
@@ -112,13 +108,8 @@ pub enum AppEvent {
     // Settings
     SettingsChanged,
     LoggingChanged,
-    AppearanceChanged,
     HotkeysChanged,
     GeneralChanged,
-
-    // System
-    BackendReady,
-    AppQuit,
 }
 
 impl AppEvent {
@@ -127,11 +118,7 @@ impl AppEvent {
             AppEvent::ThemeChanged(_) => "theme-changed",
             AppEvent::FloatingAppearanceChanged => "floating-appearance-changed",
             AppEvent::ClickthroughChanged(_) => "clickthrough-changed",
-            AppEvent::ShowFloatingWindow => "show-floating-window",
-            AppEvent::HideFloatingWindow => "hide-floating-window",
-            AppEvent::FloatingWindowToggled => "floating-window-toggled",
             AppEvent::FloatingVisibilityChanged(_) => "floating-visibility-changed",
-            AppEvent::UpdateFloatingText(_) => "update-floating-text",
             AppEvent::ConnectionsChanged => "connections-changed",
             AppEvent::ConnectionStatusChanged(_, _) => "connection-status-changed",
             AppEvent::MessageReceived(_, _) => "message-received",
@@ -141,11 +128,8 @@ impl AppEvent {
             AppEvent::TypingChanged(_, _, _) => "typing-changed",
             AppEvent::SettingsChanged => "settings-changed",
             AppEvent::LoggingChanged => "logging-changed",
-            AppEvent::AppearanceChanged => "appearance-changed",
             AppEvent::HotkeysChanged => "hotkeys-changed",
             AppEvent::GeneralChanged => "general-changed",
-            AppEvent::BackendReady => "backend-ready",
-            AppEvent::AppQuit => "app-quit",
         }
     }
 }
