@@ -27,6 +27,7 @@ dist-ssr
 # Rust / Tauri
 src-tauri/target
 Cargo.lock
+!src-tauri/Cargo.lock
 # Local build config (per-machine: CargoTargetDir on E:, RustBinDir). See
 # scripts/build.local.example.psd1 for the template.
 scripts/build.local.psd1

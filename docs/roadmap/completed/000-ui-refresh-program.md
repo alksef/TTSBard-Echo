@@ -1,6 +1,6 @@
 # 000 — UI refresh program
 
-- **Статус:** active
+- **Статус:** completed
 - **Дата:** 2026-08-10
 - **Продукт:** ttsbard-echo
 - **Визуальный reference:** `D:\RustProjects\app-tts-v2` на baseline `473d33c`

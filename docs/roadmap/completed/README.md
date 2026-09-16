@@ -12,3 +12,11 @@
 - [007 — Documentation structure and actualization](007-documentation-structure-and-actualization.md)
 
 Краткий итог проверок находится в [completion note](001-007-completion-note.md).
+
+## Программа после v0.1.0
+
+- [008 — Воспроизводимый CI и release gate](008-reproducible-ci-and-release-gate.md)
+
+Завершён 2026-09-14: push- и ручной CI, release gate по тегу и тестовый
+prerelease `v0.1.1` проверены в GitHub Actions, ссылки на прогоны — в
+[completion note](008-reproducible-ci-and-release-gate.md).

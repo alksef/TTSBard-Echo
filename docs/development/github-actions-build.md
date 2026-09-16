@@ -13,20 +13,24 @@ Windows-сборка настроена в `.github/workflows/build.yml` чер�
 
 Актуальный список установленного ПО: [Windows runner images](https://github.com/actions/runner-images/blob/main/images/windows/Windows2025-Readme.md#installed-software).
 
-Версии образов GitHub обновляются, поэтому наличие `libclang.dll` нужно
-проверять непосредственно в workflow.
+У Echo нет зависимостей от Piper, espeak или libclang (в отличие от
+`app-tts-v2`), поэтому отдельных этапов для нативных инструментов в workflow нет.
 
 ## Релизный запуск
 
-Workflow запускается для push тега `v*`, pull request в `master`/`main` и
-вручную через `workflow_dispatch`. Только запуск по тегу создаёт GitHub Release;
-PR и ручной запуск собирают dev-артефакты.
+Release workflow запускается для push тега `v*` и вручную через
+`workflow_dispatch`. Только запуск по тегу создаёт GitHub Release; ручной запуск
+собирает артефакты с версией из репозитория.
 
-Перед сборкой приложения workflow запускает `npm test` и полный набор
-Rust-тестов на Windows через
+Отдельный `ci.yml` запускается для pull request и push в `master`/`main`, а также
+вручную. При публикации тега release workflow ждёт успешный push-запуск CI для
+того же commit и не выпускает непроверенную ревизию. Поэтому релизный тег должен
+указывать на commit из `master` или `main`.
+
+Перед сборкой приложения release workflow запускает `npm test`, frontend build
+и полный набор Rust-тестов на Windows через
 `cargo test --manifest-path src-tauri/Cargo.toml --locked`. Rust-тесты идут
-после обнаружения `libclang.dll`, поэтому используют тот же `LIBCLANG_PATH`,
-что и релизная сборка. Падение любого теста останавливает создание артефакта.
+до Tauri bundle. Падение любой проверки останавливает создание артефакта.
 
 Перед тегом синхронизируйте версию штатным скриптом, проверьте diff и сборку:
 
@@ -36,17 +40,18 @@ npm run build
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
-После коммита версии создайте и отправьте тег, указывающий на нужный commit:
+После зелёного push-запуска CI создайте и отправьте тег, указывающий на тот же
+commit:
 
 ```powershell
 git tag v0.14.0
 git push origin v0.14.0
 ```
 
-В CI версия извлекается из имени тега и повторно применяется через
+В release workflow версия извлекается из имени тега и повторно применяется через
 `scripts/set-version.cjs`. Отдельной версии внутри workflow нет. Если требуется
-повторить сборку без нового тега, используйте ручной запуск; он не создаёт
-release автоматически.
+повторить сборку без нового тега, используйте ручной запуск: он сохраняет версию
+из репозитория и не создаёт release автоматически.
 
 ## Кэширование
 
@@ -60,43 +65,13 @@ release автоматически.
     workspaces: src-tauri
 ```
 
-Кэшируются Cargo registry, Git-зависимости и `src-tauri/target`. Это особенно
-важно для тяжёлых зависимостей Piper и DeepFilterNet (`ort`, `espeak-rs`,
-`deep_filter`). Первый запуск создаёт кэш, последующие сборки используют его.
-
-## Проверка нативных инструментов
-
-Перед `npm run tauri build` рекомендуется проверять CMake и `libclang.dll`:
-
-```yaml
-- name: Verify native tools
-  shell: pwsh
-  run: |
-    cmake --version
-
-    $paths = @(
-      'C:\Program Files\LLVM\bin\libclang.dll',
-      'C:\Program Files\Microsoft Visual Studio\*\*\VC\Tools\Llvm\x64\bin\libclang.dll'
-    )
-
-    $libclang = $paths |
-      ForEach-Object { Get-ChildItem $_ -ErrorAction SilentlyContinue } |
-      Select-Object -First 1
-
-    if (-not $libclang) {
-      throw 'libclang.dll not found'
-    }
-
-    "LIBCLANG_PATH=$($libclang.DirectoryName)" >> $env:GITHUB_ENV
-    Write-Host "Using libclang: $($libclang.FullName)"
-```
-
-`espeak-rs-sys` использует bindgen и CMake, поэтому без `libclang.dll` и CMake
-сборка Windows завершится до создания приложения.
+Кэшируются Cargo registry, Git-зависимости и `src-tauri/target`. Самые тяжёлые
+зависимости Echo — `tauri`, `reqwest` и `image`. Первый запуск создаёт кэш,
+последующие сборки используют его.
 
 ## Фиксация зависимостей
 
-В репозитории должны находиться:
+В репозитории находятся:
 
 - `Cargo.lock`;
 - `package-lock.json`;

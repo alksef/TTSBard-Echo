@@ -1,6 +1,6 @@
 # 007 — Documentation structure and actualization
 
-- **Статус:** active
+- **Статус:** completed
 - **Зависимости:** 001–006
 - **Позиция:** финальная задача программы
 

@@ -1,6 +1,6 @@
 # 004 — Floating window lifecycle and UI
 
-- **Статус:** active
+- **Статус:** completed
 - **Зависимости:** 001, 002, 003
 - **Блокирует:** 006, 007
 

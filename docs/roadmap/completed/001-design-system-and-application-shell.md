@@ -1,6 +1,6 @@
 # 001 — Design system and application shell
 
-- **Статус:** active
+- **Статус:** completed
 - **Зависимости:** нет; первая реализационная задача программы
 - **Reference:** `D:\RustProjects\app-tts-v2` на baseline `473d33c`
 - **Следующие задачи:** 002, 003, 004, 005
