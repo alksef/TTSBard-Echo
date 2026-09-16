@@ -107,6 +107,21 @@ pub async fn show_floating_window(
         .map_err(|e| format!("Failed to show floating window: {}", e))
 }
 
+/// Restore a persisted visible floating window after its WebView has measured
+/// and applied the content-driven size. This keeps the initial 200px config
+/// height hidden and avoids a visible resize on application startup.
+#[tauri::command]
+pub async fn restore_floating_window(
+    app_handle: AppHandle,
+    app_state: State<'_, AppState>,
+) -> Result<(), String> {
+    if app_state.windows_manager.read().load().floating.visible {
+        crate::floating::show_floating_window(&app_handle, &app_state)
+            .map_err(|e| format!("Failed to restore floating window: {e}"))?;
+    }
+    Ok(())
+}
+
 /// Hide floating window.
 #[tauri::command]
 pub async fn hide_floating_window(

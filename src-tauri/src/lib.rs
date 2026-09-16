@@ -19,6 +19,9 @@ mod single_instance;
 mod state;
 mod tray;
 
+use parking_lot::RwLock;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use tauri::{Manager, RunEvent};
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -30,6 +33,52 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, Env
 /// and closes the log file.
 pub struct LogGuard {
     _guard: Option<WorkerGuard>,
+}
+
+const WINDOW_POSITION_DEBOUNCE_MS: u64 = 250;
+static MAIN_POSITION_GENERATION: AtomicU64 = AtomicU64::new(0);
+static FLOATING_POSITION_GENERATION: AtomicU64 = AtomicU64::new(0);
+
+#[derive(Clone, Copy)]
+enum PositionTarget {
+    Main,
+    Floating,
+}
+
+fn schedule_position_save(
+    manager: Arc<RwLock<config::WindowsManager>>,
+    target: PositionTarget,
+    x: i32,
+    y: i32,
+) {
+    let generation = match target {
+        PositionTarget::Main => &MAIN_POSITION_GENERATION,
+        PositionTarget::Floating => &FLOATING_POSITION_GENERATION,
+    };
+    let ticket = generation.fetch_add(1, Ordering::Relaxed) + 1;
+
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(
+            WINDOW_POSITION_DEBOUNCE_MS,
+        ))
+        .await;
+        if generation.load(Ordering::Relaxed) != ticket {
+            return;
+        }
+
+        let result = commands::persist_blocking(manager, move |windows| match target {
+            PositionTarget::Main => windows.set_main_position(Some(x), Some(y)),
+            PositionTarget::Floating => windows.set_floating_position(Some(x), Some(y)),
+        })
+        .await;
+        if let Err(error) = result {
+            let window = match target {
+                PositionTarget::Main => "main",
+                PositionTarget::Floating => "floating",
+            };
+            tracing::warn!(%error, window, "Failed to persist debounced window position");
+        }
+    });
 }
 
 /// Build the `EnvFilter` used by both the stdout-only and file-backed logging paths.
@@ -145,6 +194,7 @@ pub fn run() {
             commands::settings::set_message_clear_interval,
             // Windows
             commands::windows::show_floating_window,
+            commands::windows::restore_floating_window,
             commands::windows::hide_floating_window,
             commands::windows::get_floating_visibility,
             commands::windows::get_floating_appearance,
@@ -169,13 +219,12 @@ pub fn run() {
                     }
                     tauri::WindowEvent::Moved(position) => {
                         if let Some(state) = window.try_state::<state::AppState>() {
-                            if let Err(error) = state
-                                .windows_manager
-                                .read()
-                                .set_main_position(Some(position.x), Some(position.y))
-                            {
-                                tracing::warn!(%error, "Failed to persist main window position");
-                            }
+                            schedule_position_save(
+                                state.windows_manager.clone(),
+                                PositionTarget::Main,
+                                position.x,
+                                position.y,
+                            );
                         }
                     }
                     tauri::WindowEvent::Resized(_) => match window.is_minimized() {
@@ -206,13 +255,12 @@ pub fn run() {
             } else if window.label() == "floating" {
                 if let tauri::WindowEvent::Moved(position) = event {
                     if let Some(state) = window.try_state::<state::AppState>() {
-                        if let Err(error) = state
-                            .windows_manager
-                            .read()
-                            .set_floating_position(Some(position.x), Some(position.y))
-                        {
-                            tracing::warn!(%error, "Failed to persist floating window position");
-                        }
+                        schedule_position_save(
+                            state.windows_manager.clone(),
+                            PositionTarget::Floating,
+                            position.x,
+                            position.y,
+                        );
                     }
                 }
             }

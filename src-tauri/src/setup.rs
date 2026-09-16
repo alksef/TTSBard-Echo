@@ -57,10 +57,6 @@ pub async fn init_app(app_handle: &AppHandle) -> anyhow::Result<()> {
     // Start all enabled connections (initial bring-up).
     manager.start_all().await?;
 
-    if state.windows_manager.read().load().floating.visible {
-        let _ = crate::floating::show_floating_window(app_handle, &state);
-    }
-
     // Set backend ready flag
     state.set_backend_ready();
     info!("Backend ready flag set");
@@ -68,6 +64,15 @@ pub async fn init_app(app_handle: &AppHandle) -> anyhow::Result<()> {
     // Emit backend-ready event
     let _ = app_handle.emit("backend-ready", ());
     info!("Emitted backend-ready event");
+
+    // The main window starts hidden so its saved position, native theme and
+    // first WebView frame are ready before Windows displays it. This avoids
+    // the white default canvas and the visible jump from the default position.
+    if let Some(main_window) = app_handle.get_webview_window("main") {
+        main_window.show()?;
+        main_window.set_focus()?;
+        info!("Main window shown after initialization");
+    }
 
     info!("Application initialized successfully");
 

@@ -10,6 +10,7 @@ import type { ConnectionErrorKind } from '@/types/types'
 import {
   createdResizeObservers,
   emitTauriEvent,
+  invoke,
   invokeCalls,
   invokePending,
   invokeRejects,
@@ -32,6 +33,7 @@ function primeBackend(): void {
   invokeReturns('get_connection_runtime_snapshot', [])
   invokeReturns('get_floating_appearance', { opacity: 80, bg_color: '#101014', use_custom_color: false, clickthrough: false })
   invokeReturns('get_theme', 'dark')
+  invokeReturns('restore_floating_window', undefined)
 }
 
 async function mountFloatingApp() {
@@ -214,6 +216,10 @@ describe('FloatingApp appearance and theme sync', () => {
     expect(createdResizeObservers()).toHaveLength(1)
     expect(createdResizeObservers()[0].observe).toHaveBeenCalled()
     expect(windowApi.onResized).toHaveBeenCalledOnce()
+    expect(invokeCalls('restore_floating_window')).toBe(1)
+    const restoreCall = invoke.mock.calls.findIndex(([command]) => command === 'restore_floating_window')
+    expect(windowApi.setSize.mock.invocationCallOrder[0])
+      .toBeLessThan(invoke.mock.invocationCallOrder[restoreCall])
     wrapper.unmount()
   })
 

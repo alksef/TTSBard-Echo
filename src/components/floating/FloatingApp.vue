@@ -18,7 +18,7 @@ const appearance = ref<FloatingAppearanceDto>({
 const unlistenFns: UnlistenFn[] = []
 let appearanceRequest = 0
 let resizeObserver: ResizeObserver | undefined
-let fitInProgress = false
+let fitPromise: Promise<void> | undefined
 let fitAgain = false
 let lockedHeight: number | undefined
 const connectionCount = computed(() => connections.value.length)
@@ -51,13 +51,13 @@ async function loadTheme() {
   }
 }
 async function fitToContent() {
-  if (fitInProgress) {
+  if (fitPromise) {
     fitAgain = true
+    await fitPromise
     return
   }
 
-  fitInProgress = true
-  try {
+  fitPromise = (async () => {
     do {
       fitAgain = false
       await nextTick()
@@ -89,9 +89,9 @@ async function fitToContent() {
         await window.setSize(new LogicalSize(width, contentHeight))
       }
     } while (fitAgain)
-  } finally {
-    fitInProgress = false
-  }
+  })()
+
+  try { await fitPromise } finally { fitPromise = undefined }
 }
 watch(connectionCount, fitToContent, { immediate: true })
 async function drag(event: MouseEvent) {
@@ -107,6 +107,7 @@ onMounted(async () => {
   }))
   await Promise.all([reloadAppearance(), loadTheme()])
   await fitToContent()
+  await invoke('restore_floating_window')
   unlistenFns.push(await window.onResized(() => { void fitToContent() }))
   const content = document.querySelector('.connection-list')
   if (content) {
