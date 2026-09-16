@@ -56,7 +56,9 @@ describe('StatusMessage', () => {
     const wrapper = mount(StatusMessage, { props: { message: 'hello', dismissible: true } })
     await flushPromises()
 
-    await wrapper.find('.status-close').trigger('click')
+    const close = wrapper.find('.status-close')
+    expect(close.attributes('aria-label')).toBe('Закрыть уведомление')
+    await close.trigger('click')
     expect(wrapper.emitted('dismiss')?.length).toBe(1)
   })
 

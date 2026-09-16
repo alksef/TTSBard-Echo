@@ -97,6 +97,8 @@ onUnmounted(() => {
       <button
         v-if="dismissible"
         class="status-close"
+        aria-label="Закрыть уведомление"
+        title="Закрыть"
         @click="onDismiss"
         type="button"
       >

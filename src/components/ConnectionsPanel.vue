@@ -135,14 +135,15 @@ async function deleteConnection(id: string) {
           <p v-if="connection.runtime.lastMessage" class="last-message">{{ connection.runtime.lastMessage }}</p>
         </div>
         <div v-if="!floating" class="card-actions">
-          <button class="icon-action" type="button" title="Изменить" @click="openEdit(connection)"><Pencil :size="15" /></button>
-          <button class="icon-action danger" type="button" title="Удалить" @click="deleteConnection(connection.id)"><Trash2 :size="15" /></button>
+          <button class="icon-action" type="button" title="Изменить" :aria-label="`Изменить подключение ${connection.name}`" @click="openEdit(connection)"><Pencil :size="15" /></button>
+          <button class="icon-action danger" type="button" title="Удалить" :aria-label="`Удалить подключение ${connection.name}`" @click="deleteConnection(connection.id)"><Trash2 :size="15" /></button>
         </div>
         <button
           class="icon-action power-action"
           type="button"
           :disabled="busyId === connection.id"
           :title="connection.runtime.status === 'Connected' ? 'Отключить' : 'Подключить'"
+          :aria-label="`${connection.runtime.status === 'Connected' ? 'Отключить' : 'Подключить'} ${connection.name}`"
           @click="toggleConnection(connection.id, connection.runtime.status)"
         >
           <Square v-if="connection.runtime.status === 'Connected'" :size="15" />

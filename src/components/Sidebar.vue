@@ -97,6 +97,7 @@ async function quitApp() {
       class="collapse-toggle-floating"
       @click="toggleCollapse"
       :title="isCollapsed ? 'Развернуть' : 'Свернуть'"
+      :aria-label="isCollapsed ? 'Развернуть боковую панель' : 'Свернуть боковую панель'"
     >
       <ChevronLeft v-if="!isCollapsed" :size="18" />
       <ChevronRight v-else :size="18" />
@@ -114,6 +115,8 @@ async function quitApp() {
             :class="{ 'sidebar-button-active': props.panel === button.id }"
             @click="setPanel(button.id)"
             :title="isCollapsed ? button.label : undefined"
+            :aria-label="button.label"
+            :aria-current="props.panel === button.id ? 'page' : undefined"
           >
             <component :is="button.icon" :size="20" class="sidebar-icon" />
             <span v-if="!isCollapsed" class="sidebar-button-label">{{ button.label }}</span>

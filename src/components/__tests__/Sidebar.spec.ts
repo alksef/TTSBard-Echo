@@ -53,3 +53,14 @@ describe('sidebar exit action', () => {
     expect(errorSpy).toHaveBeenCalledOnce()
   })
 })
+
+describe('sidebar navigation accessibility', () => {
+  it('labels the collapse control and marks the active page', () => {
+    const wrapper = mountSidebar()
+
+    expect(wrapper.get('.collapse-toggle-floating').attributes('aria-label')).toBe('Свернуть боковую панель')
+    const active = wrapper.get('.sidebar-button-active')
+    expect(active.attributes('aria-label')).toBeTruthy()
+    expect(active.attributes('aria-current')).toBe('page')
+  })
+})

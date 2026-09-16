@@ -45,6 +45,19 @@ beforeEach(() => {
 })
 
 describe('ConnectionsPanel status rendering', () => {
+  it('gives every icon-only connection action an accessible name', async () => {
+    primeBackend({ c1: { status: 'Connected' } })
+    const wrapper = await mountPanel()
+    const labels = wrapper.findAll('.connection-card button').map((button) => button.attributes('aria-label'))
+
+    expect(labels).toEqual([
+      'Изменить подключение conn-c1',
+      'Удалить подключение conn-c1',
+      'Отключить conn-c1',
+    ])
+    wrapper.unmount()
+  })
+
   it('renders the retry label with wait and attempt progress and a spinner', async () => {
     primeBackend({
       c1: { status: 'Retrying', attempt: 3, max_attempts: 10, next_retry_in_secs: 5 },
