@@ -1,3 +1,4 @@
+use crate::connections::ConnectionErrorKind;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -9,7 +10,37 @@ pub enum ConnectionStatus {
     Disconnected,
     Connecting,
     Connected,
-    Error(String),
+    /// A failed attempt announced the next one: `attempt` is the number of
+    /// the upcoming (not yet made) attempt, 1-based, out of `max_attempts`;
+    /// `next_retry_in_secs` is the wait before it starts (roadmap 011,
+    /// decision B).
+    Retrying {
+        attempt: u32,
+        max_attempts: u32,
+        next_retry_in_secs: u64,
+    },
+    /// A classified terminal failure: machine category plus the fixed
+    /// English message (no URL, query, or token can enter the message).
+    Error {
+        kind: ConnectionErrorKind,
+        message: String,
+    },
+}
+
+impl ConnectionStatus {
+    /// The simple status name used as the `status` field of the wire payload.
+    ///
+    /// The structured detail (error kind/message, attempt counters) travels
+    /// in its own payload fields, not in this name.
+    pub fn name(&self) -> &'static str {
+        match self {
+            ConnectionStatus::Disconnected => "Disconnected",
+            ConnectionStatus::Connecting => "Connecting",
+            ConnectionStatus::Connected => "Connected",
+            ConnectionStatus::Retrying { .. } => "Retrying",
+            ConnectionStatus::Error { .. } => "Error",
+        }
+    }
 }
 
 impl fmt::Display for ConnectionStatus {
@@ -18,9 +49,38 @@ impl fmt::Display for ConnectionStatus {
             ConnectionStatus::Disconnected => write!(f, "Disconnected"),
             ConnectionStatus::Connecting => write!(f, "Connecting"),
             ConnectionStatus::Connected => write!(f, "Connected"),
-            ConnectionStatus::Error(e) => write!(f, "Error: {}", e),
+            ConnectionStatus::Retrying { .. } => write!(f, "Retrying"),
+            ConnectionStatus::Error { message, .. } => write!(f, "Error: {message}"),
         }
     }
+}
+
+/// The structured webview payload for `connection-status-changed`:
+/// `{id, status, errorKind?, errorMessage?, attempt?, maxAttempts?,
+/// nextRetryInSecs?}` (roadmap 011, decision B).
+///
+/// Wire field names are camelCase; the optional detail fields are present
+/// only when the status carries them — plain statuses serialize exactly
+/// `{id, status}`.
+pub fn connection_status_payload(id: &str, status: &ConnectionStatus) -> serde_json::Value {
+    let mut payload = serde_json::json!({ "id": id, "status": status.name() });
+    match status {
+        ConnectionStatus::Retrying {
+            attempt,
+            max_attempts,
+            next_retry_in_secs,
+        } => {
+            payload["attempt"] = serde_json::json!(attempt);
+            payload["maxAttempts"] = serde_json::json!(max_attempts);
+            payload["nextRetryInSecs"] = serde_json::json!(next_retry_in_secs);
+        }
+        ConnectionStatus::Error { kind, message } => {
+            payload["errorKind"] = serde_json::json!(kind);
+            payload["errorMessage"] = serde_json::json!(message);
+        }
+        _ => {}
+    }
+    payload
 }
 
 /* ==========================================================================
@@ -101,9 +161,69 @@ mod tests {
     /// sentinel — the assertion pins that the token never reaches them.
     const TOKEN_SENTINEL: &str = "secret-sentinel";
 
+    /// The structured payload shape: plain statuses serialize exactly
+    /// `{id, status}`, while `Retrying`/`Error` add their detail fields —
+    /// and nothing else (roadmap 011, decision B).
+    #[test]
+    fn status_payload_is_structural_with_fields_only_when_applicable() {
+        let id = "conn-events";
+
+        for status in [
+            ConnectionStatus::Disconnected,
+            ConnectionStatus::Connecting,
+            ConnectionStatus::Connected,
+        ] {
+            let payload = connection_status_payload(id, &status);
+            assert_eq!(
+                payload,
+                serde_json::json!({ "id": id, "status": status.name() }),
+                "payload of {status:?}"
+            );
+        }
+
+        let payload = connection_status_payload(
+            id,
+            &ConnectionStatus::Retrying {
+                attempt: 3,
+                max_attempts: 10,
+                next_retry_in_secs: 5,
+            },
+        );
+        assert_eq!(
+            payload,
+            serde_json::json!({
+                "id": id,
+                "status": "Retrying",
+                "attempt": 3,
+                "maxAttempts": 10,
+                "nextRetryInSecs": 5,
+            })
+        );
+
+        let payload = connection_status_payload(
+            id,
+            &ConnectionStatus::Error {
+                kind: ConnectionErrorKind::Authentication,
+                message: ConnectionErrorKind::Authentication
+                    .fixed_message()
+                    .to_string(),
+            },
+        );
+        assert_eq!(
+            payload,
+            serde_json::json!({
+                "id": id,
+                "status": "Error",
+                "errorKind": "authentication",
+                "errorMessage": "The server rejected the credentials",
+            })
+        );
+    }
+
     /// Status payloads for a token-carrying connection: `event_loop` emits
-    /// `(id, status.to_string())` and logs `Debug` of id and status; the
-    /// terminal error text is the fixed message from the retry loop.
+    /// `connection_status_payload(id, status)` and logs `Debug` of id and
+    /// status; the terminal error carries the fixed kind/message pair from
+    /// the retry loop.
     #[test]
     fn status_event_payloads_are_sentinel_free() {
         let id = "conn-events";
@@ -111,12 +231,20 @@ mod tests {
             ConnectionStatus::Connecting,
             ConnectionStatus::Connected,
             ConnectionStatus::Disconnected,
-            ConnectionStatus::Error(crate::connections::client::terminal_error_message()),
+            ConnectionStatus::Retrying {
+                attempt: 2,
+                max_attempts: 10,
+                next_retry_in_secs: 5,
+            },
+            ConnectionStatus::Error {
+                kind: ConnectionErrorKind::Network,
+                message: crate::connections::client::terminal_error_message(),
+            },
         ];
 
         for status in statuses {
             // The webview payload shape used by event_loop.
-            let payload = serde_json::to_string(&(id, status.to_string())).unwrap();
+            let payload = connection_status_payload(id, &status).to_string();
             // Positive control: the payload really carries the connection id.
             assert!(payload.contains(id));
             assert!(
@@ -134,7 +262,7 @@ mod tests {
             assert!(!debug.contains(TOKEN_SENTINEL));
             let event_debug = format!(
                 "{:?}",
-                AppEvent::ConnectionStatusChanged(id.to_string(), status)
+                AppEvent::ConnectionStatusChanged(id.to_string(), status.clone())
             );
             assert!(!event_debug.contains(TOKEN_SENTINEL));
         }

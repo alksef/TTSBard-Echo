@@ -1,4 +1,4 @@
-use crate::events::AppEvent;
+use crate::events::{connection_status_payload, AppEvent};
 use tauri::{AppHandle, Emitter};
 use tracing::debug;
 
@@ -6,7 +6,7 @@ use tracing::debug;
 ///
 /// Event **names** come from the single source of truth `AppEvent::to_tauri_event`
 /// (no string literals duplicated here). Event **payloads** differ per variant
-/// (a theme string, an (id, status) tuple, a clickthrough bool, …), so they are
+/// (a theme string, a structured status object, a clickthrough bool, …), so they are
 /// matched here alongside a debug log line.
 pub struct EventHandler {
     app_handle: AppHandle,
@@ -60,7 +60,9 @@ impl EventHandler {
             }
             AppEvent::ConnectionStatusChanged(id, status) => {
                 debug!("Connection status changed: {} -> {}", id, status);
-                let _ = self.app_handle.emit(name, (id, status.to_string()));
+                let _ = self
+                    .app_handle
+                    .emit(name, connection_status_payload(id, status));
             }
             AppEvent::MessageReceived(id, _message) => {
                 debug!("Message received from {}", id);

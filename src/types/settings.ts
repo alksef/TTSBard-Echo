@@ -24,9 +24,51 @@ export interface ConnectionRuntimeSnapshot {
   id: string
   status: import('./types').ConnectionStatus
   lastMessage?: string
+  /** Machine-readable failure category of the terminal `Error` status. */
+  errorKind?: import('./types').ConnectionErrorKind
+  /** Fixed English failure text of the terminal `Error` status. */
   errorMessage?: string
+  /** Retry progress of the `Retrying` status: upcoming attempt (1-based)... */
+  attempt?: number
+  /** ...out of this many attempts in the cycle... */
+  maxAttempts?: number
+  /** ...waiting this many seconds before it starts. */
+  nextRetryInSecs?: number
   isTyping: boolean
   previewText?: string
+}
+
+/**
+ * Wire shape of the backend `get_connection_runtime_snapshot` DTO:
+ * snake_case fields, `null` where no detail applies (roadmap 011, decision B).
+ * Mapped to {@link ConnectionRuntimeSnapshot} in `useConnections`.
+ */
+export interface ConnectionRuntimeSnapshotDto {
+  id: string
+  status: import('./types').ConnectionStatus
+  last_message: string | null
+  error_kind: import('./types').ConnectionErrorKind | null
+  error_message: string | null
+  attempt: number | null
+  max_attempts: number | null
+  next_retry_in_secs: number | null
+  is_typing: boolean
+  preview_text: string | null
+}
+
+/**
+ * Wire payload of the `connection-status-changed` event (roadmap 011,
+ * decision B): plain statuses carry exactly `{id, status}`, `Retrying` adds
+ * the attempt fields, `Error` adds `errorKind`/`errorMessage`.
+ */
+export interface ConnectionStatusEventPayload {
+  id: string
+  status: import('./types').ConnectionStatus
+  errorKind?: import('./types').ConnectionErrorKind
+  errorMessage?: string
+  attempt?: number
+  maxAttempts?: number
+  nextRetryInSecs?: number
 }
 
 /* ==========================================================================

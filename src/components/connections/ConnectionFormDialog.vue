@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
+import { invoke } from '@tauri-apps/api/core'
 import type { ConnectionConfig } from '@/types/settings'
+import type { ConnectionTestResultDto } from '@/types/types'
+import { connectionErrorKindLabel } from '@/lib/connectionStatusLabels'
 
 const DEFAULT_CONNECTION_URL = 'http://127.0.0.1:10100/sse'
 
@@ -15,6 +18,11 @@ const url = ref('')
 const token = ref('')
 const formError = ref<string | null>(null)
 const submitting = ref(false)
+// Pre-save endpoint probe state: separate from the save lock, its own request
+// id so a stale answer can never paint a result into a reopened dialog.
+const testing = ref(false)
+const testResult = ref<{ ok: boolean; text: string } | null>(null)
+let testRequest = 0
 const isEdit = computed(() => props.connection !== null)
 // The parent owns the async IPC mutation and reports it through `saving`;
 // `submitting` covers the synchronous emit itself.
@@ -26,6 +34,9 @@ function reset() {
   token.value = props.connection?.access_token ?? ''
   formError.value = null
   submitting.value = false
+  testRequest += 1
+  testResult.value = null
+  testing.value = false
 }
 
 watch(() => [props.open, props.connection], () => { if (props.open) void nextTick(reset) }, { immediate: true })
@@ -38,6 +49,39 @@ watch(() => props.saving, (now, was) => {
 
 function close() {
   if (!locked.value) emit('update:open', false)
+}
+
+/** RU text of a probe result: success with latency, otherwise the category
+ * label; unknown or absent kinds fall back to the backend's fixed message. */
+function describeTestResult(result: ConnectionTestResultDto): { ok: boolean; text: string } {
+  if (result.ok) return { ok: true, text: `Подключение установлено (${result.latency_ms ?? 0} мс)` }
+  const kindLabel = result.error_kind !== undefined ? connectionErrorKindLabel(result.error_kind) : undefined
+  return { ok: false, text: kindLabel ?? result.error_message ?? 'Ошибка подключения' }
+}
+
+async function runTest() {
+  if (locked.value || testing.value) return
+  testResult.value = null
+  const trimmedUrl = url.value.trim()
+  if (!trimmedUrl) { formError.value = 'Введите корректный URL'; return }
+  // The raw field values go as-is: the backend resolves the endpoint the same
+  // way as the live path (/sse default, token out of the query into the
+  // cookie channel) and classifies the outcome with the shared taxonomy.
+  const request = ++testRequest
+  testing.value = true
+  try {
+    const result = await invoke<ConnectionTestResultDto>('test_connection', {
+      url: trimmedUrl,
+      accessToken: token.value.trim() || undefined,
+    })
+    if (request !== testRequest) return
+    testResult.value = describeTestResult(result)
+  } catch (reason) {
+    if (request !== testRequest) return
+    testResult.value = { ok: false, text: reason instanceof Error ? reason.message : String(reason) }
+  } finally {
+    if (request === testRequest) testing.value = false
+  }
 }
 
 async function submit() {
@@ -86,6 +130,10 @@ async function submit() {
           <label>Название<input v-model="name" autofocus maxlength="256" placeholder="Мой SSE-сервер" /></label>
           <label>URL<input v-model="url" type="url" :placeholder="DEFAULT_CONNECTION_URL" /></label>
           <label>Токен доступа <span>(необязательно)</span><input v-model="token" type="password" autocomplete="off" placeholder="Токен для авторизации" /></label>
+          <div class="test-row">
+            <button class="test-action" type="button" :disabled="locked || testing" @click="runTest">{{ testing ? 'Проверка…' : 'Проверить' }}</button>
+            <p v-if="testResult" class="test-result" :class="testResult.ok ? 'test-ok' : 'test-fail'" role="status">{{ testResult.text }}</p>
+          </div>
           <p v-if="formError" class="form-error">{{ formError }}</p>
           <footer class="dialog-actions">
             <button class="secondary-action" type="button" :disabled="locked" @click="close">Отмена</button>
@@ -107,6 +155,12 @@ label span { font-weight: 400; color: var(--color-text-muted); }
 input { width: 100%; box-sizing: border-box; padding: .65rem .75rem; color: var(--color-text-primary); background: var(--color-bg-field); border: 1px solid var(--color-border); border-radius: 8px; }
 input:focus { outline: none; border-color: var(--color-accent); box-shadow: 0 0 0 3px rgba(var(--rgb-accent), .12); }
 .form-error { margin: 0; color: var(--color-danger); font-size: .8rem; }
+.test-row { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; }
+.test-action { padding: .5rem .8rem; color: var(--color-text-primary); background: var(--color-bg-field); border: 1px solid var(--color-border); border-radius: 8px; cursor: pointer; font-weight: 600; }
+.test-action:disabled { opacity: .55; cursor: wait; }
+.test-result { margin: 0; font-size: .8rem; }
+.test-ok { color: var(--color-success); }
+.test-fail { color: var(--color-danger); }
 .dialog-actions { justify-content: flex-end; margin-top: .2rem; }
 .primary-action, .secondary-action { padding: .6rem .9rem; border-radius: 8px; border: 1px solid var(--color-border); cursor: pointer; font-weight: 600; }
 .primary-action { color: white; background: var(--color-accent); border-color: var(--color-accent); }

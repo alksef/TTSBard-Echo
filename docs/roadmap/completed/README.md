@@ -36,3 +36,11 @@ listeners в `useAppSettings`, отсутствие реальной защит�
 redaction-аудит с сентинел-тестами, ACL на конфиг-файлы, CSP прод/dev;
 ручная E2E на реальном конфиге v0.1.0 — в
 [completion note](010-settings-integrity-and-secrets.md).
+
+- [011 — Диагностика и надёжность SSE](011-sse-observability-and-reliability.md)
+
+Завершён 2026-09-15: 7 нормализованных категорий ошибок, структурный
+статус-пейлоад с attempt/next-retry, кооперативная отмена connect/retry,
+проба endpoint до сохранения, санитизованные логи с correlation id,
+allowlist-экспорт диагностики, локальный SSE fixture (13 интеграционных
+тестов); ручная E2E 9/9 — в [completion note](011-sse-observability-and-reliability.md).

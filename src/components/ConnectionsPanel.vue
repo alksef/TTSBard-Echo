@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Globe, Pencil, Plus, Plug, Square, Trash2, Loader2 } from 'lucide-vue-next'
+import { Globe, Pencil, Plus, Plug, Square, Trash2, Loader2, Download } from 'lucide-vue-next'
+import { invoke } from '@tauri-apps/api/core'
 import ConnectionFormDialog from './connections/ConnectionFormDialog.vue'
 import { useConnections } from '@/composables/useConnections'
+import { connectionStatusLabel } from '@/lib/connectionStatusLabels'
 import type { ConnectionConfig } from '@/types/settings'
 import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window'
 
@@ -22,6 +24,8 @@ const editingConnection = ref<ConnectionConfig | null>(null)
 const busyId = ref<string | null>(null)
 const saving = ref(false)
 const actionError = ref<string | null>(null)
+const actionInfo = ref<string | null>(null)
+const exporting = ref(false)
 
 const visibleError = computed(() => error.value || actionError.value)
 
@@ -44,6 +48,23 @@ function openAdd() {
 function openEdit(config: ConnectionConfig) {
   editingConnection.value = config
   dialogOpen.value = true
+}
+
+// Only runs on this explicit user action — the backend never exports on its
+// own (roadmap 011, task 008). The result is the written file path.
+async function exportDiagnostics() {
+  if (exporting.value) return
+  exporting.value = true
+  actionError.value = null
+  actionInfo.value = null
+  try {
+    const path = await invoke<string>('export_diagnostics')
+    actionInfo.value = `Диагностика сохранена: ${path}`
+  } catch (reason) {
+    actionError.value = reason instanceof Error ? reason.message : String(reason)
+  } finally {
+    exporting.value = false
+  }
 }
 
 async function save(config: ConnectionConfig) {
@@ -91,13 +112,6 @@ async function deleteConnection(id: string) {
     busyId.value = null
   }
 }
-
-function statusLabel(status: string, errorMessage?: string) {
-  if (status === 'Error') return errorMessage || 'Ошибка подключения'
-  if (status === 'Connected') return 'Подключено'
-  if (status === 'Connecting') return 'Подключение…'
-  return 'Отключено'
-}
 </script>
 
 <template>
@@ -106,12 +120,26 @@ function statusLabel(status: string, errorMessage?: string) {
       <div>
         <h1>Подключения</h1>
       </div>
-      <button class="primary-action icon-action" type="button" aria-label="Добавить подключение" title="Добавить подключение" @click="openAdd">
-        <Plus :size="16" />
-      </button>
+      <div class="header-actions">
+        <button
+          class="secondary-action export-action"
+          type="button"
+          :disabled="exporting"
+          aria-label="Экспорт диагностики"
+          title="Экспорт диагностики"
+          @click="exportDiagnostics"
+        >
+          <Download :size="15" />
+          Экспорт диагностики
+        </button>
+        <button class="primary-action icon-action" type="button" aria-label="Добавить подключение" title="Добавить подключение" @click="openAdd">
+          <Plus :size="16" />
+        </button>
+      </div>
     </header>
 
     <p v-if="visibleError" class="panel-error">{{ visibleError }}</p>
+    <p v-if="actionInfo" class="panel-info">{{ actionInfo }}</p>
     <div v-if="loading && connections.length === 0" class="empty-state">Загрузка подключений…</div>
     <div v-else-if="connections.length === 0" class="empty-state">
       <Globe :size="42" />
@@ -127,8 +155,12 @@ function statusLabel(status: string, errorMessage?: string) {
             <Globe :size="16" />
             <h2>{{ connection.name }}</h2>
             <span class="status" :class="connection.runtime.status.toLowerCase()">
-              <Loader2 v-if="connection.runtime.status === 'Connecting'" :size="12" class="spin" />
-              {{ statusLabel(connection.runtime.status, connection.runtime.errorMessage) }}
+              <Loader2
+                v-if="connection.runtime.status === 'Connecting' || connection.runtime.status === 'Retrying'"
+                :size="12"
+                class="spin"
+              />
+              {{ connectionStatusLabel(connection.runtime) }}
             </span>
           </div>
           <code v-if="!floating">{{ connection.url }}</code>
@@ -173,6 +205,8 @@ h2 { font-size: .95rem; }
 .primary-action { background: var(--color-accent); color: white; }
 .secondary-action { background: var(--color-bg-field); color: var(--color-text-primary); border: 1px solid var(--color-border); }
 .panel-error { margin: 0; padding: .75rem 1rem; color: var(--color-danger); background: rgba(var(--rgb-danger), .1); border: 1px solid rgba(var(--rgb-danger), .25); border-radius: 8px; }
+.header-actions { display: flex; align-items: center; gap: .5rem; }
+.panel-info { margin: 0; padding: .75rem 1rem; color: var(--color-success); background: rgba(var(--rgb-success), .1); border: 1px solid rgba(var(--rgb-success), .25); border-radius: 8px; word-break: break-all; }
 .empty-state { min-height: 240px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .65rem; color: var(--color-text-muted); text-align: center; }
 .empty-state svg { opacity: .55; }
 .empty-state strong { color: var(--color-text-primary); }
@@ -185,7 +219,7 @@ code { display: block; overflow: hidden; color: var(--color-text-muted); font-si
 .last-message { margin: .45rem 0 0; color: var(--color-text-secondary); font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status { display: inline-flex; align-items: center; gap: .25rem; margin-left: auto; padding: .2rem .45rem; border-radius: 999px; color: var(--color-text-muted); background: var(--color-bg-field); font-size: .7rem; white-space: nowrap; }
 .status.connected { color: var(--color-success); background: rgba(var(--rgb-success), .12); }
-.status.connecting { color: var(--color-warning); background: rgba(var(--rgb-warning), .12); }
+.status.connecting, .status.retrying { color: var(--color-warning); background: rgba(var(--rgb-warning), .12); }
 .status.error { color: var(--color-danger); background: rgba(var(--rgb-danger), .12); }
 .card-actions { gap: .25rem; }
 .icon-action { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; color: var(--color-text-secondary); background: transparent; border: 1px solid transparent; border-radius: 7px; cursor: pointer; }

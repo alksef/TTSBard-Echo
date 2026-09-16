@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ConnectionConfig, ConnectionRuntimeSnapshot } from '@/types/settings'
+import { connectionStatusLabel } from '@/lib/connectionStatusLabels'
 interface ConnectionView extends ConnectionConfig { runtime: ConnectionRuntimeSnapshot }
 defineProps<{ connections: ConnectionView[]; loading: boolean; error: string | null }>()
 </script>
@@ -14,7 +15,7 @@ defineProps<{ connections: ConnectionView[]; loading: boolean; error: string | n
           <strong :title="connection.name">{{ connection.name }}</strong>
           <span class="status" :data-status="connection.runtime.status" role="img" :aria-label="`Статус: ${connection.runtime.status}`" :title="connection.runtime.status"></span>
         </div>
-        <p v-if="connection.runtime.errorMessage" class="error">{{ connection.runtime.errorMessage }}</p>
+        <p v-if="connection.runtime.status === 'Error'" class="error">{{ connectionStatusLabel(connection.runtime) }}</p>
         <p v-else-if="connection.runtime.isTyping" class="typing" aria-label="Набирает">
           <span class="typing-dots" aria-hidden="true"><i>.</i><i>.</i><i>.</i></span>
         </p>

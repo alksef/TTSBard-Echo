@@ -1,7 +1,12 @@
 import { computed, onUnmounted, ref, type Ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
-import type { ConnectionConfig, ConnectionRuntimeSnapshot } from '@/types/settings'
+import type {
+  ConnectionConfig,
+  ConnectionRuntimeSnapshot,
+  ConnectionRuntimeSnapshotDto,
+  ConnectionStatusEventPayload,
+} from '@/types/settings'
 import type { ConnectionStatus } from '@/types/types'
 
 interface ConnectionView extends ConnectionConfig {
@@ -12,6 +17,22 @@ export function normalizeConnectionError(error: unknown): string {
   if (error instanceof Error) return error.message
   if (typeof error === 'string') return error
   return 'Неизвестная ошибка подключения'
+}
+
+/** Map the snake_case snapshot DTO to the camelCase runtime state. */
+export function mapConnectionRuntimeSnapshot(dto: ConnectionRuntimeSnapshotDto): ConnectionRuntimeSnapshot {
+  return {
+    id: dto.id,
+    status: dto.status,
+    lastMessage: dto.last_message ?? undefined,
+    errorKind: dto.error_kind ?? undefined,
+    errorMessage: dto.error_message ?? undefined,
+    attempt: dto.attempt ?? undefined,
+    maxAttempts: dto.max_attempts ?? undefined,
+    nextRetryInSecs: dto.next_retry_in_secs ?? undefined,
+    isTyping: dto.is_typing,
+    previewText: dto.preview_text ?? undefined,
+  }
 }
 
 const MUTATION_TIMEOUT_MS = 10_000
@@ -68,10 +89,10 @@ export function useConnections(): {
     try {
       const [nextConfigs, snapshot] = await Promise.all([
         invoke<ConnectionConfig[]>('get_connections'),
-        invoke<ConnectionRuntimeSnapshot[]>('get_connection_runtime_snapshot'),
+        invoke<ConnectionRuntimeSnapshotDto[]>('get_connection_runtime_snapshot'),
       ])
       configs.value = nextConfigs
-      applySnapshot(snapshot)
+      applySnapshot(snapshot.map(mapConnectionRuntimeSnapshot))
     } catch (reason) {
       error.value = normalizeConnectionError(reason)
       throw reason
@@ -84,11 +105,22 @@ export function useConnections(): {
     if (subscribed) return
     subscribed = true
     const listeners = await Promise.all([
-      listen<[string, string]>('connection-status-changed', ({ payload }) => {
-        const [id, rawStatus] = payload
-        const status = rawStatus.startsWith('Error:') ? 'Error' : rawStatus as ConnectionStatus
-        const previous = runtimeStates.value.get(id)
-        runtimeStates.value.set(id, { ...previous, id, status } as ConnectionRuntimeSnapshot)
+      listen<ConnectionStatusEventPayload>('connection-status-changed', ({ payload }) => {
+        // The structured payload carries only the fields its status implies;
+        // detail fields left out by the backend must not survive from a
+        // previous Error/Retrying state.
+        const previous = runtimeStates.value.get(payload.id)
+        runtimeStates.value.set(payload.id, {
+          ...previous,
+          id: payload.id,
+          status: payload.status,
+          errorKind: payload.errorKind,
+          errorMessage: payload.errorMessage,
+          attempt: payload.attempt,
+          maxAttempts: payload.maxAttempts,
+          nextRetryInSecs: payload.nextRetryInSecs,
+          isTyping: previous?.isTyping ?? false,
+        })
       }),
       listen<[string, string]>('message-received', ({ payload }) => {
         const [id, lastMessage] = payload

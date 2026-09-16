@@ -2,7 +2,11 @@
    Shared backend payload fixtures for frontend tests.
    Shapes must stay compatible with src/types/settings.ts.
    ============================================================================ */
-import type { ConnectionConfig, ConnectionRuntimeSnapshot } from '@/types/settings'
+import type {
+  ConnectionConfig,
+  ConnectionRuntimeSnapshot,
+  ConnectionRuntimeSnapshotDto,
+} from '@/types/settings'
 import type { AppSettingsDto, Theme } from '@/types'
 
 export function connectionConfig(id: string, overrides: Partial<ConnectionConfig> = {}): ConnectionConfig {
@@ -24,6 +28,27 @@ export function runtimeSnapshot(
     id,
     status,
     isTyping: false,
+    ...overrides,
+  }
+}
+
+/** Wire DTO returned by get_connection_runtime_snapshot (snake_case, nulls). */
+export function runtimeSnapshotDto(
+  id: string,
+  status: ConnectionRuntimeSnapshotDto['status'] = 'Disconnected',
+  overrides: Partial<ConnectionRuntimeSnapshotDto> = {},
+): ConnectionRuntimeSnapshotDto {
+  return {
+    id,
+    status,
+    last_message: null,
+    error_kind: null,
+    error_message: null,
+    attempt: null,
+    max_attempts: null,
+    next_retry_in_secs: null,
+    is_typing: false,
+    preview_text: null,
     ...overrides,
   }
 }

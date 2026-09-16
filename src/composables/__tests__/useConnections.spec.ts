@@ -14,9 +14,13 @@ import {
   listen,
   tauriListenerCount,
 } from '@/test/helpers/tauri'
-import { connectionConfig, runtimeSnapshot } from '@/test/helpers/fixtures'
+import { connectionConfig, runtimeSnapshotDto } from '@/test/helpers/fixtures'
 import { withSetup } from '@/test/helpers/withSetup'
-import { normalizeConnectionError, useConnections } from '@/composables/useConnections'
+import {
+  mapConnectionRuntimeSnapshot,
+  normalizeConnectionError,
+  useConnections,
+} from '@/composables/useConnections'
 
 vi.mock('@tauri-apps/api/core', async () => await import('@/test/helpers/tauri'))
 vi.mock('@tauri-apps/api/event', async () => await import('@/test/helpers/tauri'))
@@ -27,8 +31,8 @@ const c2 = connectionConfig('c2')
 function primeBackend(): void {
   invokeReturns('get_connections', [c1, c2])
   invokeReturns('get_connection_runtime_snapshot', [
-    runtimeSnapshot('c1', 'Connected'),
-    runtimeSnapshot('c2', 'Connecting'),
+    runtimeSnapshotDto('c1', 'Connected'),
+    runtimeSnapshotDto('c2', 'Connecting'),
   ])
 }
 
@@ -48,6 +52,48 @@ describe('normalizeConnectionError', () => {
     expect(normalizeConnectionError(new Error('boom'))).toBe('boom')
     expect(normalizeConnectionError('plain')).toBe('plain')
     expect(normalizeConnectionError({ code: 42 })).toBe('Неизвестная ошибка подключения')
+  })
+})
+
+describe('mapConnectionRuntimeSnapshot', () => {
+  it('maps the snake_case wire DTO to camelCase runtime state', () => {
+    expect(mapConnectionRuntimeSnapshot(runtimeSnapshotDto('c1', 'Connected', { last_message: 'hello' }))).toEqual({
+      id: 'c1',
+      status: 'Connected',
+      lastMessage: 'hello',
+      errorKind: undefined,
+      errorMessage: undefined,
+      attempt: undefined,
+      maxAttempts: undefined,
+      nextRetryInSecs: undefined,
+      isTyping: false,
+      previewText: undefined,
+    })
+  })
+
+  it('maps retry progress and classified error detail fields', () => {
+    const retrying = mapConnectionRuntimeSnapshot(runtimeSnapshotDto('c1', 'Retrying', {
+      attempt: 3,
+      max_attempts: 10,
+      next_retry_in_secs: 5,
+    }))
+    expect(retrying.status).toBe('Retrying')
+    expect(retrying.attempt).toBe(3)
+    expect(retrying.maxAttempts).toBe(10)
+    expect(retrying.nextRetryInSecs).toBe(5)
+    expect(retrying.errorKind).toBeUndefined()
+    expect(retrying.errorMessage).toBeUndefined()
+
+    const failed = mapConnectionRuntimeSnapshot(runtimeSnapshotDto('c1', 'Error', {
+      error_kind: 'authentication',
+      error_message: 'The server rejected the credentials',
+    }))
+    expect(failed.status).toBe('Error')
+    expect(failed.errorKind).toBe('authentication')
+    expect(failed.errorMessage).toBe('The server rejected the credentials')
+    expect(failed.attempt).toBeUndefined()
+    expect(failed.maxAttempts).toBeUndefined()
+    expect(failed.nextRetryInSecs).toBeUndefined()
   })
 })
 
@@ -100,14 +146,18 @@ describe('useConnections manual reload', () => {
     const reloading = result.reload()
     expect(result.loading.value).toBe(true)
 
-    pendingSnapshot.resolve([runtimeSnapshot('c1', 'Error: refused', { errorMessage: 'refused' })])
+    pendingSnapshot.resolve([runtimeSnapshotDto('c1', 'Error', {
+      error_kind: 'network',
+      error_message: 'Could not reach the server',
+    })])
     await reloading
     await flushPromises()
 
     expect(invokeCalls('get_connections')).toBe(initialCalls + 1)
     expect(result.loading.value).toBe(false)
-    expect(result.connections.value[0].runtime.status).toBe('Error: refused')
-    expect(result.connections.value[0].runtime.errorMessage).toBe('refused')
+    expect(result.connections.value[0].runtime.status).toBe('Error')
+    expect(result.connections.value[0].runtime.errorKind).toBe('network')
+    expect(result.connections.value[0].runtime.errorMessage).toBe('Could not reach the server')
   })
 
   it('rejects and keeps loading=false when reload fails', async () => {
@@ -121,14 +171,57 @@ describe('useConnections manual reload', () => {
 })
 
 describe('useConnections event handling', () => {
-  it('applies status events including Error normalization', async () => {
+  it('applies structured status payloads including Error and Retrying details', async () => {
     const { result } = await setupConnections()
 
-    emitTauriEvent('connection-status-changed', ['c1', 'Connected'])
+    emitTauriEvent('connection-status-changed', { id: 'c1', status: 'Connected' })
     expect(result.connections.value[0].runtime.status).toBe('Connected')
 
-    emitTauriEvent('connection-status-changed', ['c1', 'Error: handshake failed'])
-    expect(result.connections.value[0].runtime.status).toBe('Error')
+    emitTauriEvent('connection-status-changed', {
+      id: 'c1',
+      status: 'Error',
+      errorKind: 'authentication',
+      errorMessage: 'The server rejected the credentials',
+    })
+    const failed = result.connections.value[0].runtime
+    expect(failed.status).toBe('Error')
+    expect(failed.errorKind).toBe('authentication')
+    expect(failed.errorMessage).toBe('The server rejected the credentials')
+
+    emitTauriEvent('connection-status-changed', {
+      id: 'c1',
+      status: 'Retrying',
+      attempt: 2,
+      maxAttempts: 10,
+      nextRetryInSecs: 5,
+    })
+    const retrying = result.connections.value[0].runtime
+    expect(retrying.status).toBe('Retrying')
+    expect(retrying.attempt).toBe(2)
+    expect(retrying.maxAttempts).toBe(10)
+    expect(retrying.nextRetryInSecs).toBe(5)
+  })
+
+  it('clears stale error and retry details when a plain status arrives', async () => {
+    const { result } = await setupConnections()
+
+    emitTauriEvent('connection-status-changed', {
+      id: 'c1',
+      status: 'Error',
+      errorKind: 'tls',
+      errorMessage: 'Secure connection (TLS) failed',
+    })
+    expect(result.connections.value[0].runtime.errorKind).toBe('tls')
+
+    emitTauriEvent('connection-status-changed', { id: 'c1', status: 'Retrying', attempt: 1, maxAttempts: 10, nextRetryInSecs: 5 })
+    emitTauriEvent('connection-status-changed', { id: 'c1', status: 'Connected' })
+    const cleared = result.connections.value[0].runtime
+    expect(cleared.status).toBe('Connected')
+    expect(cleared.errorKind).toBeUndefined()
+    expect(cleared.errorMessage).toBeUndefined()
+    expect(cleared.attempt).toBeUndefined()
+    expect(cleared.maxAttempts).toBeUndefined()
+    expect(cleared.nextRetryInSecs).toBeUndefined()
   })
 
   it('stores message, stops typing and clears the message again', async () => {

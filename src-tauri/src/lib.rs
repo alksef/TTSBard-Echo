@@ -17,7 +17,7 @@ mod setup;
 mod state;
 mod tray;
 
-use tauri::Manager;
+use tauri::{Manager, RunEvent};
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -81,7 +81,7 @@ pub fn init_logging() -> Result<LogGuard, Box<dyn std::error::Error>> {
 pub fn run() {
     let _log_guard = init_logging().expect("Failed to initialize logging");
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .setup(|app| {
             // Initialize app on tokio runtime
             let handle = app.handle().clone();
@@ -105,6 +105,8 @@ pub fn run() {
             commands::connections::connect_connection,
             commands::connections::disconnect_connection,
             commands::connections::update_connection,
+            commands::connections::test_connection,
+            commands::connections::export_diagnostics,
             // Settings - Get
             commands::settings::get_settings,
             commands::settings::get_all_app_settings,
@@ -171,6 +173,19 @@ pub fn run() {
                 }
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        if let RunEvent::Exit = event {
+            // Cooperative shutdown of every running connection (roadmap 011,
+            // task 004): cancel all tokens so no retry sleep, attempt, or
+            // status event survives the app, then abort the handles as the
+            // backstop. The manager is managed during setup; if the app
+            // exits before that ran, there is nothing to stop.
+            if let Some(manager) = app_handle.try_state::<crate::connections::ConnectionManager>() {
+                manager.stop_all();
+            }
+        }
+    });
 }

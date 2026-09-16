@@ -1,4 +1,5 @@
 use crate::config::{SettingsManager, WindowsManager};
+use crate::connections::ConnectionErrorKind;
 use crate::events::{AppEvent, ConnectionStatus};
 use parking_lot::{Mutex, RwLock};
 use std::collections::HashMap;
@@ -24,6 +25,70 @@ pub struct ConnectionState {
     pub is_typing: bool,
     pub preview_text: Option<String>,
     typing_generation: u64,
+    /// Terminal failure detail from the last `Error` status (roadmap 011):
+    /// machine category plus the fixed message. Reset by every other status.
+    pub error_kind: Option<ConnectionErrorKind>,
+    pub error_message: Option<String>,
+    /// Retry progress from the last `Retrying` status: the number of the
+    /// upcoming attempt (1-based), the attempt budget of the cycle, and the
+    /// wait before that attempt. Reset by every other status.
+    pub attempt: Option<u32>,
+    pub max_attempts: Option<u32>,
+    pub next_retry_in_secs: Option<u64>,
+}
+
+impl ConnectionState {
+    /// A fresh state with no runtime detail (no message, no typing) whose
+    /// retry/error fields are derived from `status`.
+    pub fn new(id: impl Into<String>, status: ConnectionStatus) -> Self {
+        let mut state = Self {
+            id: id.into(),
+            status: ConnectionStatus::Disconnected,
+            last_message: None,
+            last_message_generation: 0,
+            is_typing: false,
+            preview_text: None,
+            typing_generation: 0,
+            error_kind: None,
+            error_message: None,
+            attempt: None,
+            max_attempts: None,
+            next_retry_in_secs: None,
+        };
+        state.apply_status(&status);
+        state
+    }
+
+    /// Sets `status` and recomputes the retry/error detail fields the status
+    /// carries: every status first resets the detail to `None`, then `Retrying`
+    /// fills the attempt counters and `Error` fills the failure category and
+    /// message (roadmap 011, task 002).
+    fn apply_status(&mut self, status: &ConnectionStatus) {
+        self.status = status.clone();
+        self.error_kind = None;
+        self.error_message = None;
+        self.attempt = None;
+        self.max_attempts = None;
+        self.next_retry_in_secs = None;
+        match status {
+            ConnectionStatus::Retrying {
+                attempt,
+                max_attempts,
+                next_retry_in_secs,
+            } => {
+                self.attempt = Some(*attempt);
+                self.max_attempts = Some(*max_attempts);
+                self.next_retry_in_secs = Some(*next_retry_in_secs);
+            }
+            ConnectionStatus::Error { kind, message } => {
+                self.error_kind = Some(*kind);
+                self.error_message = Some(message.clone());
+            }
+            ConnectionStatus::Disconnected
+            | ConnectionStatus::Connecting
+            | ConnectionStatus::Connected => {}
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -180,7 +245,9 @@ fn typing_clear_for(event: &AppEvent) -> Option<AppEvent> {
         AppEvent::ConnectionStatusChanged(id, status) => {
             if matches!(
                 status,
-                ConnectionStatus::Disconnected | ConnectionStatus::Error(_)
+                ConnectionStatus::Disconnected
+                    | ConnectionStatus::Retrying { .. }
+                    | ConnectionStatus::Error { .. }
             ) {
                 Some(AppEvent::TypingChanged(id.clone(), false, None))
             } else {
@@ -206,36 +273,23 @@ fn apply_connection_event(connections: &mut HashMap<String, ConnectionState>, ev
         AppEvent::ConnectionAdded(id) => {
             connections.insert(
                 id.clone(),
-                ConnectionState {
-                    id: id.clone(),
-                    status: ConnectionStatus::Disconnected,
-                    last_message: None,
-                    last_message_generation: 0,
-                    is_typing: false,
-                    preview_text: None,
-                    typing_generation: 0,
-                },
+                ConnectionState::new(id.clone(), ConnectionStatus::Disconnected),
             );
         }
         AppEvent::ConnectionRemoved(id) => {
             connections.remove(id);
         }
         AppEvent::ConnectionStatusChanged(id, status) => {
-            let entry = connections
-                .entry(id.clone())
-                .or_insert_with(|| ConnectionState {
-                    id: id.clone(),
-                    status: ConnectionStatus::Disconnected,
-                    last_message: None,
-                    last_message_generation: 0,
-                    is_typing: false,
-                    preview_text: None,
-                    typing_generation: 0,
-                });
-            entry.status = status.clone();
+            let entry = connections.entry(id.clone()).or_insert_with(|| {
+                ConnectionState::new(id.clone(), ConnectionStatus::Disconnected)
+            });
+            entry.apply_status(status);
+
             if matches!(
                 status,
-                ConnectionStatus::Disconnected | ConnectionStatus::Error(_)
+                ConnectionStatus::Disconnected
+                    | ConnectionStatus::Retrying { .. }
+                    | ConnectionStatus::Error { .. }
             ) {
                 entry.is_typing = false;
                 entry.preview_text = None;
@@ -258,17 +312,9 @@ fn apply_connection_event(connections: &mut HashMap<String, ConnectionState>, ev
             }
         }
         AppEvent::TypingChanged(id, is_typing, preview) => {
-            let entry = connections
-                .entry(id.clone())
-                .or_insert_with(|| ConnectionState {
-                    id: id.clone(),
-                    status: ConnectionStatus::Disconnected,
-                    last_message: None,
-                    last_message_generation: 0,
-                    is_typing: false,
-                    preview_text: None,
-                    typing_generation: 0,
-                });
+            let entry = connections.entry(id.clone()).or_insert_with(|| {
+                ConnectionState::new(id.clone(), ConnectionStatus::Disconnected)
+            });
             entry.is_typing = *is_typing;
             entry.preview_text = if *is_typing { preview.clone() } else { None };
             entry.typing_generation = entry.typing_generation.wrapping_add(1);
@@ -319,15 +365,7 @@ mod tests {
     fn insert_connected(conns: &Arc<RwLock<HashMap<String, ConnectionState>>>, id: &str) {
         conns.write().insert(
             id.to_string(),
-            ConnectionState {
-                id: id.to_string(),
-                status: ConnectionStatus::Connected,
-                last_message: None,
-                last_message_generation: 0,
-                is_typing: false,
-                preview_text: None,
-                typing_generation: 0,
-            },
+            ConnectionState::new(id.to_string(), ConnectionStatus::Connected),
         );
     }
 
@@ -425,7 +463,115 @@ mod tests {
             &conns,
             &AppEvent::ConnectionStatusChanged(
                 "conn-1".to_string(),
-                ConnectionStatus::Error("fail".to_string()),
+                ConnectionStatus::Error {
+                    kind: ConnectionErrorKind::Network,
+                    message: "fail".to_string(),
+                },
+            ),
+        );
+
+        let conn = conns.read().get("conn-1").cloned().unwrap();
+        assert!(!conn.is_typing);
+        assert!(conn.preview_text.is_none());
+        assert_eq!(conn.error_kind, Some(ConnectionErrorKind::Network));
+        assert_eq!(conn.error_message.as_deref(), Some("fail"));
+    }
+
+    #[test]
+    fn retrying_status_stores_retry_fields_and_resets_error_fields() {
+        let conns = connections();
+        insert_connected(&conns, "conn-1");
+        update_runtime(
+            &conns,
+            &AppEvent::ConnectionStatusChanged(
+                "conn-1".to_string(),
+                ConnectionStatus::Error {
+                    kind: ConnectionErrorKind::Http,
+                    message: "The server returned an unexpected HTTP response".to_string(),
+                },
+            ),
+        );
+
+        update_runtime(
+            &conns,
+            &AppEvent::ConnectionStatusChanged(
+                "conn-1".to_string(),
+                ConnectionStatus::Retrying {
+                    attempt: 4,
+                    max_attempts: 10,
+                    next_retry_in_secs: 5,
+                },
+            ),
+        );
+
+        let conn = conns.read().get("conn-1").cloned().unwrap();
+        assert_eq!(conn.status.name(), "Retrying");
+        assert_eq!(conn.attempt, Some(4));
+        assert_eq!(conn.max_attempts, Some(10));
+        assert_eq!(conn.next_retry_in_secs, Some(5));
+        // A retry supersedes the previous terminal error detail.
+        assert_eq!(conn.error_kind, None);
+        assert!(conn.error_message.is_none());
+    }
+
+    #[test]
+    fn connected_resets_retry_and_error_fields() {
+        let conns = connections();
+        update_runtime(
+            &conns,
+            &AppEvent::ConnectionStatusChanged(
+                "conn-1".to_string(),
+                ConnectionStatus::Retrying {
+                    attempt: 2,
+                    max_attempts: 10,
+                    next_retry_in_secs: 5,
+                },
+            ),
+        );
+        update_runtime(
+            &conns,
+            &AppEvent::ConnectionStatusChanged(
+                "conn-1".to_string(),
+                ConnectionStatus::Error {
+                    kind: ConnectionErrorKind::Network,
+                    message: "Could not reach the server".to_string(),
+                },
+            ),
+        );
+        update_runtime(
+            &conns,
+            &AppEvent::ConnectionStatusChanged("conn-1".to_string(), ConnectionStatus::Connected),
+        );
+
+        let conn = conns.read().get("conn-1").cloned().unwrap();
+        assert_eq!(conn.status, ConnectionStatus::Connected);
+        assert_eq!(conn.error_kind, None);
+        assert!(conn.error_message.is_none());
+        assert_eq!(conn.attempt, None);
+        assert_eq!(conn.max_attempts, None);
+        assert_eq!(conn.next_retry_in_secs, None);
+    }
+
+    #[test]
+    fn retrying_status_clears_typing() {
+        let conns = connections();
+        insert_connected(&conns, "conn-1");
+        update_runtime(
+            &conns,
+            &AppEvent::TypingChanged("conn-1".to_string(), true, Some("preview...".to_string())),
+        );
+
+        // `Retrying` replaced the intermediate `Disconnected` of the retry
+        // loop, so it must keep clearing the typing indicator.
+        update_runtime(
+            &conns,
+            &AppEvent::ConnectionStatusChanged(
+                "conn-1".to_string(),
+                ConnectionStatus::Retrying {
+                    attempt: 2,
+                    max_attempts: 10,
+                    next_retry_in_secs: 5,
+                },
             ),
         );
 

@@ -5,6 +5,7 @@
    ============================================================================ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import type { ConnectionErrorKind } from '@/types/types'
 
 import {
   createdResizeObservers,
@@ -18,7 +19,7 @@ import {
   tauriListenerCount,
   windowApi,
 } from '@/test/helpers/tauri'
-import { connectionConfig, runtimeSnapshot } from '@/test/helpers/fixtures'
+import { connectionConfig, runtimeSnapshot, runtimeSnapshotDto } from '@/test/helpers/fixtures'
 import FloatingApp from '@/components/floating/FloatingApp.vue'
 import FloatingConnectionList from '@/components/floating/FloatingConnectionList.vue'
 
@@ -82,10 +83,20 @@ describe('FloatingConnectionList states', () => {
     const typingOnly = [{ ...connections[0], runtime: runtimeSnapshot('c1', 'Connected', { isTyping: true, previewText: 'he' }) }]
     expect(mount(FloatingConnectionList, { props: { ...base, connections: typingOnly } }).find('.typing').exists()).toBe(true)
 
-    const errored = [{ ...connections[0], runtime: runtimeSnapshot('c1', 'Error: refused', { errorMessage: 'refused', isTyping: true }) }]
+    // A failure renders the RU category label from the shared helper, never
+    // the raw English backend message (roadmap 011, task 003 defect fix).
+    const errored = [{ ...connections[0], runtime: runtimeSnapshot('c1', 'Error', { errorKind: 'network', errorMessage: 'Could not reach the server', isTyping: true }) }]
     const errorWrapper = mount(FloatingConnectionList, { props: { ...base, connections: errored } })
-    expect(errorWrapper.find('p.error').text()).toBe('refused')
+    expect(errorWrapper.find('p.error').text()).toBe('Сервер недоступен (сеть или DNS)')
     expect(errorWrapper.find('.typing').exists()).toBe(false)
+
+    // An unknown wire kind falls back to the fixed backend message...
+    const unknownKind = [{ ...connections[0], runtime: runtimeSnapshot('c1', 'Error', { errorKind: 'mystery' as ConnectionErrorKind, errorMessage: 'Novel failure text' }) }]
+    expect(mount(FloatingConnectionList, { props: { ...base, connections: unknownKind } }).find('p.error').text()).toBe('Novel failure text')
+
+    // ...as does an Error status without a kind at all.
+    const kindless = [{ ...connections[0], runtime: runtimeSnapshot('c1', 'Error', { errorMessage: 'The server rejected the credentials' }) }]
+    expect(mount(FloatingConnectionList, { props: { ...base, connections: kindless } }).find('p.error').text()).toBe('The server rejected the credentials')
   })
 })
 
@@ -114,7 +125,7 @@ describe('FloatingApp states', () => {
 
   it('renders connections and reacts to typing and message events', async () => {
     invokeReturns('get_connections', [connectionConfig('c1', { name: 'Main' })])
-    invokeReturns('get_connection_runtime_snapshot', [runtimeSnapshot('c1', 'Connected')])
+    invokeReturns('get_connection_runtime_snapshot', [runtimeSnapshotDto('c1', 'Connected')])
     const wrapper = await mountFloatingApp()
 
     expect(wrapper.find('.connection-card').exists()).toBe(true)
