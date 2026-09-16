@@ -32,7 +32,8 @@ npm test
 scripts/cargo.ps1 --% fmt --manifest-path src-tauri/Cargo.toml --all -- --check
 ```
 
-`npm test` проверяет IPC- и settings-контракты. Полная Tauri-сборка выполняется на Windows:
+`npm test` проверяет IPC- и settings-контракты и запускает frontend unit-тесты.
+Полная Tauri-сборка выполняется на Windows:
 
 ```powershell
 npm run tauri build

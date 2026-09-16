@@ -3,7 +3,7 @@
 > **Статус:** исторический план большой миграции. Выполненные архитектурные и
 > инфраструктурные решения сохраняют силу, но незавершённая UI/documentation-часть
 > заменена программой
-> [`docs/roadmap/active/000-ui-refresh-program.md`](../roadmap/active/000-ui-refresh-program.md).
+> [`docs/roadmap/completed/000-ui-refresh-program.md`](../roadmap/completed/000-ui-refresh-program.md).
 
 **Дата:** 2026-08-03
 **Решение:** `docs/decisions/0021-echo-align-to-appttsv2.md`

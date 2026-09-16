@@ -14,6 +14,8 @@ files under `docs/plans/` are not current instructions.
 
 ## Required checks
 
-Run frontend checks with `npm test` and `npm run build`. On Windows, run Rust
-commands through `scripts/cargo.ps1`; CI uses bare Cargo in clean runners. Keep
+Run frontend checks with `npm test` and `npm run build`. On Windows, run the
+complete Rust gate through `scripts/cargo.ps1`: fmt with `--all -- --check`,
+Clippy with `--locked --all-targets --all-features -- -D warnings`, and tests
+with `--locked --all-targets`. CI uses bare Cargo in clean runners. Keep
 `.work/`, build outputs, local configuration, and secrets out of commits.

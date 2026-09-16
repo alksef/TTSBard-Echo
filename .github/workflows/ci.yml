@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [master, main]
+    branches: [main]
   push:
-    branches: [master, main]
+    branches: [main]
   workflow_dispatch:
 
 permissions: read-all
@@ -32,7 +32,7 @@ jobs:
 
   check-clippy:
     name: Run Clippy linter
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -42,19 +42,14 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - name: Run clippy
-        working-directory: src-tauri
+        shell: pwsh
         env:
           TAURI_CONFIG: '{"bundle":{"resources":null}}'
-        run: cargo clippy --locked --all-targets --all-features -- -D warnings
+        run: >-
+          & .\scripts\cargo.ps1 @('clippy', '--manifest-path',
+          'src-tauri/Cargo.toml', '--locked', '--all-targets', '--all-features',
+          '--', '-D', 'warnings')
 
   check-types:
     name: Check frontend and contracts
@@ -75,7 +70,7 @@ jobs:
 
   test-rust:
     name: Run Rust tests
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -83,22 +78,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - name: Run tests
-        working-directory: src-tauri
+        shell: pwsh
         env:
           TAURI_CONFIG: '{"bundle":{"resources":null}}'
-        run: cargo test --locked --all-targets
+        run: >-
+          & .\scripts\cargo.ps1 @('test', '--manifest-path',
+          'src-tauri/Cargo.toml', '--locked', '--all-targets')
 
-  build-check:
-    name: Build check (Windows)
+  bundle-smoke:
+    name: Tauri bundle smoke
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
@@ -112,7 +101,6 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - name: Build check
-        env:
-          TAURI_CONFIG: '{"bundle":{"resources":null}}'
-        run: npm run tauri -- build --debug
+      - name: Build Tauri debug app without installers
+        shell: pwsh
+        run: .\scripts\build.ps1 -Mode debug

@@ -13,8 +13,8 @@ Windows-сборка настроена в `.github/workflows/build.yml` чер�
 
 Актуальный список установленного ПО: [Windows runner images](https://github.com/actions/runner-images/blob/main/images/windows/Windows2025-Readme.md#installed-software).
 
-У Echo нет зависимостей от Piper, espeak или libclang (в отличие от
-`app-tts-v2`), поэтому отдельных этапов для нативных инструментов в workflow нет.
+Текущий dependency graph Echo не требует отдельных этапов подготовки внешних
+нативных инструментов.
 
 ## Релизный запуск
 
@@ -22,10 +22,10 @@ Release workflow запускается для push тега `v*` и вручн�
 `workflow_dispatch`. Только запуск по тегу создаёт GitHub Release; ручной запуск
 собирает артефакты с версией из репозитория.
 
-Отдельный `ci.yml` запускается для pull request и push в `master`/`main`, а также
+Отдельный `ci.yml` запускается для pull request и push в `main`, а также
 вручную. При публикации тега release workflow ждёт успешный push-запуск CI для
 того же commit и не выпускает непроверенную ревизию. Поэтому релизный тег должен
-указывать на commit из `master` или `main`.
+указывать на commit из `main`.
 
 Перед сборкой приложения release workflow запускает `npm test`, frontend build
 и полный набор Rust-тестов на Windows через

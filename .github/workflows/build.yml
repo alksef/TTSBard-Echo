@@ -32,7 +32,7 @@ jobs:
           while (( SECONDS < deadline )); do
             run_id=$(gh api \
               "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${GITHUB_SHA}&event=push&per_page=20" \
-              --jq '.workflow_runs | map(select(.head_branch == "master" or .head_branch == "main")) | sort_by(.created_at) | last | .id // empty')
+              --jq '.workflow_runs | map(select(.head_branch == "main")) | sort_by(.created_at) | last | .id // empty')
 
             if [[ -z "$run_id" ]]; then
               echo "CI for ${GITHUB_SHA} has not appeared yet; waiting..."

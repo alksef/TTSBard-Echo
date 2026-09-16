@@ -1,3 +1,16 @@
 # Events
 
-Connection status and messages use tuple payloads `[connection_id, value]`. `typing-changed` uses an object payload `{ id: string, isTyping: boolean, previewText?: string }`. Floating visibility uses `{ visible: boolean }`. `connections-changed`, `connection-added`, `connection-removed`, `floating-appearance-changed`, `theme-changed`, and `settings-changed` are invalidation events with either an identifier or empty payload. Event names are defined in `src-tauri/src/events.rs`.
+Event names are defined in `src-tauri/src/events.rs`; payload serialization is
+owned by `src-tauri/src/event_loop.rs`.
+
+- `connection-status-changed`: `{ id, status }`; `Retrying` additionally carries
+  `attempt`, `maxAttempts`, and `nextRetryInSecs`, while `Error` carries
+  `errorKind` and `errorMessage`.
+- `message-received`: tuple `[connection_id, message]`.
+- `message-cleared`, `connection-added`, and `connection-removed`: connection ID.
+- `typing-changed`: `{ id, isTyping, previewText? }`.
+- `floating-visibility-changed`: `{ visible }`.
+- `theme-changed`: theme string; `clickthrough-changed`: boolean.
+- `connections-changed`, `floating-appearance-changed`, `settings-changed`,
+  `logging-changed`, `hotkeys-changed`, and `general-changed`: empty invalidation
+  payloads.
