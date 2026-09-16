@@ -14,6 +14,8 @@ mod event_loop;
 mod events;
 mod floating;
 mod setup;
+#[cfg(windows)]
+mod single_instance;
 mod state;
 mod tray;
 
@@ -79,10 +81,28 @@ pub fn init_logging() -> Result<LogGuard, Box<dyn std::error::Error>> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(windows)]
+    single_instance::acquire_lock_or_exit();
+
     let _log_guard = init_logging().expect("Failed to initialize logging");
 
     let app = tauri::Builder::default()
         .setup(|app| {
+            #[cfg(windows)]
+            {
+                let app_handle = app.handle().clone();
+                single_instance::register_show_callback(move || {
+                    // WM_COPYDATA is handled by a native window procedure on
+                    // the Tauri thread. Defer window API calls until the
+                    // procedure has returned; synchronous calls here can wait
+                    // on the same event loop and fail to reach the webview.
+                    let app_handle = app_handle.clone();
+                    tauri::async_runtime::spawn(async move {
+                        tray::show_main_window(&app_handle, "second-instance");
+                    });
+                });
+            }
+
             // Initialize app on tokio runtime
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {

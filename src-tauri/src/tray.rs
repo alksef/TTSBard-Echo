@@ -1,7 +1,32 @@
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{App, Manager};
-use tracing::info;
+use tauri::{App, AppHandle, Manager};
+use tracing::{info, warn};
+
+/// Show and activate the existing main window without toggling its state.
+///
+/// Tray actions and a repeated application launch share this path so hidden,
+/// minimized and already-visible windows behave consistently.
+pub fn show_main_window(app_handle: &AppHandle, source: &'static str) {
+    let Some(window) = app_handle.get_webview_window("main") else {
+        warn!(source, "Main window is not available");
+        return;
+    };
+
+    // `unminimize` is idempotent and avoids a synchronous state query before
+    // the restore request. This path can be entered from the native
+    // single-instance receiver while the WebView event loop is settling.
+    if let Err(error) = window.unminimize() {
+        warn!(%error, source, "Failed to restore minimized main window");
+    }
+
+    if let Err(error) = window.show() {
+        warn!(%error, source, "Failed to show main window");
+    }
+    if let Err(error) = window.set_focus() {
+        warn!(%error, source, "Failed to focus main window");
+    }
+}
 
 /// Initialize system tray with icon and menu
 pub fn init_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
@@ -34,19 +59,13 @@ pub fn init_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
                 if matches!(button, MouseButton::Left)
                     && matches!(button_state, MouseButtonState::Up)
                 {
-                    if let Some(window) = tray.app_handle().get_webview_window("main") {
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
+                    show_main_window(tray.app_handle(), "tray-click");
                 }
             }
         })
         .on_menu_event(|tray, event| match event.id.as_ref() {
             "show" => {
-                if let Some(window) = tray.app_handle().get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
+                show_main_window(tray.app_handle(), "tray-menu");
             }
             "quit" => {
                 tray.app_handle().exit(0);

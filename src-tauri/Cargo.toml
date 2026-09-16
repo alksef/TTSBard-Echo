@@ -36,12 +36,17 @@ tauri-build = { version = "2", features = [] }
 #   (SetNamedSecurityInfoW and friends) in config/acl.rs, roadmap 010
 #   task 006. The crate is not built on other platforms, matching the
 #   cfg(windows)-gated code in config/secret.rs and config/acl.rs.
+# - DataExchange, LibraryLoader and WindowsAndMessaging: early single-instance
+#   receiver and bounded second-launch activation, roadmap 013.
 windows = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_Security",
     "Win32_Security_Authorization",
     "Win32_Security_Cryptography",
+    "Win32_System_DataExchange",
+    "Win32_System_LibraryLoader",
     "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
 ] }
 
 [features]

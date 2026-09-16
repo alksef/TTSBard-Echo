@@ -17,6 +17,9 @@ This document describes the technical architecture of the TTS Bard Echo applicat
 - Event-driven architecture using Rust event system
 - Connection management for external services  
 - SSE client implementation for real-time communication
+- Windows single-instance guard acquired before logging, settings and Tauri
+  initialization; repeated launches signal the existing process through a
+  bounded `WM_COPYDATA` receiver and then exit
 
 ### Data Flow
 1. User interactions in frontend
@@ -26,6 +29,14 @@ This document describes the technical architecture of the TTS Bard Echo applicat
 5. Responses converted to events and sent back to frontend
 
 ## Integration Points
+
+### Windows process lifecycle
+
+- `single_instance.rs` owns the session-scoped mutex, hidden receiver window,
+  bounded second-launch delivery and pending-show handoff.
+- `run()` acquires the guard before any shared user data or service is touched.
+- `tray::show_main_window` is the common non-toggle path used by tray actions
+  and repeated launches to restore, show and focus the existing main window.
 
 ### Server-Sent Events (SSE) 
 - Client implementation in Rust (`src-tauri/src/connections/client.rs`)
