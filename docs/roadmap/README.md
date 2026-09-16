@@ -8,17 +8,17 @@
 - `completed/` — завершённые задачи и программы.
 - `rejected/` — рассмотренные, но отклонённые направления.
 
-Программа подготовки интерфейса к альфа-релизу `v0.1.0`, roadmap 008
-и roadmap 009 завершены и находятся в [completed](completed/README.md).
+Программа подготовки интерфейса к альфа-релизу `v0.1.0`, roadmap 008,
+roadmap 009 и roadmap 010 завершены и находятся в
+[completed](completed/README.md).
 
 ## Активная программа после v0.1.0
 
 Рекомендуемый порядок исполнения:
 
-1. [010 — Целостность и безопасность настроек](active/010-settings-integrity-and-secrets.md)
-2. [011 — Диагностика и надёжность SSE](active/011-sse-observability-and-reliability.md)
-3. [012 — Представление и история событий](active/012-event-presentation-and-history.md)
-4. [013 — Доверенная доставка и обновления](active/013-trusted-distribution-and-updates.md)
+1. [011 — Диагностика и надёжность SSE](active/011-sse-observability-and-reliability.md)
+2. [012 — Представление и история событий](active/012-event-presentation-and-history.md)
+3. [013 — Доверенная доставка и обновления](active/013-trusted-distribution-and-updates.md)
 
 Документы фиксируют варианты развития, но не означают, что все перечисленные
 продуктовые решения уже приняты.

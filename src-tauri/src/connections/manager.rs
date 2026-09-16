@@ -41,7 +41,7 @@ impl ConnectionManager {
         let client = SSEClient::new(
             config.id.clone(),
             config.url.clone(),
-            config.access_token.clone(),
+            config.access_token.clone().into_inner(),
             Arc::new(self.state.clone()),
         );
         let handle = client.connect();

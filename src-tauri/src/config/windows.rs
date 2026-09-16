@@ -1,11 +1,13 @@
 use crate::config::{
+    atomic,
     constants::{DEFAULT_FLOATING_BG_COLOR, DEFAULT_FLOATING_OPACITY},
+    recovery,
     validation::{validate_hex_color, validate_opacity},
 };
 use anyhow::Result;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -72,21 +74,32 @@ impl WindowsManager {
 
         std::fs::create_dir_all(&config_dir)?;
 
-        let windows_file = config_dir.join("windows.json");
-        let settings = if windows_file.exists() {
-            let content = std::fs::read_to_string(&windows_file)?;
-            serde_json::from_str(&content)?
-        } else {
-            let settings = WindowsSettings::default();
-            let content = serde_json::to_string_pretty(&settings)?;
-            std::fs::write(&windows_file, content)?;
-            settings
-        };
+        let settings = Self::load_initial(&config_dir)?;
 
         Ok(Self {
             config_dir,
             cache: Arc::new(RwLock::new(settings)),
         })
+    }
+
+    /// Load the initial window settings from `config_dir` (roadmap 010,
+    /// task 003). A config file that cannot be read or parsed must not
+    /// fail startup: recovery quarantines the corrupted file, restores the
+    /// previous `.bak` version when it is valid, falls back to defaults
+    /// otherwise, and persists the recovered state under the main name.
+    fn load_initial(config_dir: &Path) -> Result<WindowsSettings> {
+        let windows_file = config_dir.join("windows.json");
+        if windows_file.exists() {
+            Ok(recovery::load_with_recovery(
+                &windows_file,
+                WindowsSettings::default(),
+            ))
+        } else {
+            let settings = WindowsSettings::default();
+            let content = serde_json::to_string_pretty(&settings)?;
+            atomic::write_atomic(&windows_file, &content)?;
+            Ok(settings)
+        }
     }
 
     pub fn load(&self) -> WindowsSettings {
@@ -97,7 +110,7 @@ impl WindowsManager {
         let mut cache = self.cache.write();
         let windows_file = self.config_dir.join("windows.json");
         let content = serde_json::to_string_pretty(settings)?;
-        std::fs::write(&windows_file, content)?;
+        atomic::write_atomic(&windows_file, &content)?;
         *cache = settings.clone();
         Ok(())
     }
@@ -116,7 +129,7 @@ impl WindowsManager {
 
         let windows_file = self.config_dir.join("windows.json");
         let content = serde_json::to_string_pretty(&settings)?;
-        std::fs::write(&windows_file, content)?;
+        atomic::write_atomic(&windows_file, &content)?;
         *cache = settings;
         Ok(())
     }
@@ -190,9 +203,9 @@ mod tests {
         ));
         std::fs::create_dir_all(&config_dir).unwrap();
         let initial = WindowsSettings::default();
-        std::fs::write(
-            config_dir.join("windows.json"),
-            serde_json::to_string_pretty(&initial).unwrap(),
+        atomic::write_atomic(
+            &config_dir.join("windows.json"),
+            &serde_json::to_string_pretty(&initial).unwrap(),
         )
         .unwrap();
 
@@ -247,6 +260,186 @@ mod tests {
         assert!(persisted.floating.use_custom_color);
         assert_eq!(persisted.floating.position.x, Some(321));
         assert_eq!(persisted.floating.position.y, Some(654));
+
+        std::fs::remove_dir_all(config_dir).unwrap();
+    }
+
+    #[test]
+    fn save_keeps_previous_version_backup() {
+        let (manager, config_dir) = test_manager();
+
+        manager.set_floating_opacity(50).unwrap();
+
+        let persisted: WindowsSettings = serde_json::from_str(
+            &std::fs::read_to_string(config_dir.join("windows.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(persisted.floating.opacity, 50);
+
+        let backup: WindowsSettings = serde_json::from_str(
+            &std::fs::read_to_string(config_dir.join("windows.json.bak")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(backup.floating.opacity, DEFAULT_FLOATING_OPACITY);
+
+        let leftover_temp = std::fs::read_dir(&config_dir).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .ends_with(".tmp")
+        });
+        assert!(!leftover_temp);
+
+        std::fs::remove_dir_all(config_dir).unwrap();
+    }
+
+    /* ------------------------------------------------------------------
+    Corruption recovery (roadmap 010, task 003)
+    ------------------------------------------------------------------ */
+
+    /// Sentinel placed into corrupted test files: it must never appear in
+    /// the diagnostic text.
+    const CORRUPTION_SENTINEL: &str = "SENTINEL-DO-NOT-LEAK-9f3k";
+
+    fn fresh_config_dir() -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let config_dir = std::env::temp_dir().join(format!(
+            "ttsbard-echo-windows-recovery-{}-{unique}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&config_dir).unwrap();
+        config_dir
+    }
+
+    fn corrupt_copies(config_dir: &Path) -> Vec<String> {
+        std::fs::read_dir(config_dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .filter(|name| name.starts_with("windows.json.corrupt-"))
+            .collect()
+    }
+
+    #[test]
+    fn corrupted_config_recovers_from_backup() {
+        let config_dir = fresh_config_dir();
+        let windows_file = config_dir.join("windows.json");
+        let backup_file = config_dir.join("windows.json.bak");
+
+        // The previous valid state (opacity 50) lives in the backup.
+        let mut previous = WindowsSettings::default();
+        previous.floating.opacity = 50;
+        atomic::write_atomic(
+            &backup_file,
+            &serde_json::to_string_pretty(&previous).unwrap(),
+        )
+        .unwrap();
+
+        // Corrupted main file: broken JSON (unquoted key, no closing brace)
+        // around the sentinel.
+        std::fs::write(&windows_file, format!("{{ broken: {CORRUPTION_SENTINEL}")).unwrap();
+
+        let (result, logs) =
+            recovery::test_support::capture_warns(|| WindowsManager::load_initial(&config_dir));
+        let settings = result.unwrap();
+        assert_eq!(settings.floating.opacity, 50);
+
+        // The corrupted file was quarantined next to the main name...
+        let quarantined = corrupt_copies(&config_dir);
+        assert_eq!(quarantined.len(), 1);
+        assert_eq!(
+            std::fs::read_to_string(config_dir.join(&quarantined[0])).unwrap(),
+            format!("{{ broken: {CORRUPTION_SENTINEL}")
+        );
+
+        // ...and a fresh valid file starts a new life at the main name
+        // with the recovered state.
+        let persisted: WindowsSettings =
+            serde_json::from_str(&std::fs::read_to_string(&windows_file).unwrap()).unwrap();
+        assert_eq!(persisted.floating.opacity, 50);
+
+        let leftover_temp = std::fs::read_dir(&config_dir).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .ends_with(".tmp")
+        });
+        assert!(!leftover_temp);
+
+        // The diagnostic names the file and the recovery, not the content.
+        assert!(logs.contains("windows.json"));
+        assert!(logs.contains("restored from previous backup"));
+        assert!(!logs.contains(CORRUPTION_SENTINEL));
+
+        std::fs::remove_dir_all(config_dir).unwrap();
+    }
+
+    #[test]
+    fn corrupted_config_and_backup_start_from_defaults() {
+        let config_dir = fresh_config_dir();
+        let windows_file = config_dir.join("windows.json");
+        let backup_file = config_dir.join("windows.json.bak");
+
+        std::fs::write(&backup_file, "not-json-at-all").unwrap();
+        std::fs::write(&windows_file, CORRUPTION_SENTINEL).unwrap();
+
+        let (result, logs) =
+            recovery::test_support::capture_warns(|| WindowsManager::load_initial(&config_dir));
+        let settings = result.unwrap();
+        assert_eq!(settings.floating.opacity, DEFAULT_FLOATING_OPACITY);
+        assert!(!settings.floating.visible);
+
+        // A corrupt copy of the main file is kept next to it...
+        let quarantined = corrupt_copies(&config_dir);
+        assert_eq!(quarantined.len(), 1);
+
+        // ...and defaults are persisted at the main name.
+        let persisted: WindowsSettings =
+            serde_json::from_str(&std::fs::read_to_string(&windows_file).unwrap()).unwrap();
+        assert_eq!(persisted.floating.opacity, DEFAULT_FLOATING_OPACITY);
+
+        let leftover_temp = std::fs::read_dir(&config_dir).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .ends_with(".tmp")
+        });
+        assert!(!leftover_temp);
+
+        assert!(logs.contains("windows.json"));
+        assert!(logs.contains("starting with default values"));
+        assert!(!logs.contains(CORRUPTION_SENTINEL));
+
+        std::fs::remove_dir_all(config_dir).unwrap();
+    }
+
+    #[test]
+    fn corruption_diagnostic_does_not_leak_file_content() {
+        let config_dir = fresh_config_dir();
+        let windows_file = config_dir.join("windows.json");
+        let backup_file = config_dir.join("windows.json.bak");
+
+        let main_sentinel = "MAIN-SENTINEL-7d2e";
+        let backup_sentinel = "BACKUP-SENTINEL-4a1c";
+        std::fs::write(&backup_file, backup_sentinel).unwrap();
+        std::fs::write(&windows_file, main_sentinel).unwrap();
+
+        let (result, logs) =
+            recovery::test_support::capture_warns(|| WindowsManager::load_initial(&config_dir));
+        let settings = result.unwrap();
+        assert!(!settings.floating.visible);
+
+        // The diagnostic says which file and which recovery was applied...
+        assert!(logs.contains("windows.json"));
+        assert!(logs.contains("starting with default values"));
+        // ...and contains no content of either corrupted file.
+        assert!(!logs.contains(main_sentinel));
+        assert!(!logs.contains(backup_sentinel));
 
         std::fs::remove_dir_all(config_dir).unwrap();
     }

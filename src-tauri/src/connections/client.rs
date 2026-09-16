@@ -113,11 +113,21 @@ where
             continue;
         }
 
-        let msg = format!("Connection failed after {MAX_RECONNECT_ATTEMPTS} attempts");
+        let msg = terminal_error_message();
         warn!("{msg}");
         emit_status(ConnectionStatus::Error(msg));
         return;
     }
+}
+
+/// Terminal message when the reconnect budget is exhausted.
+///
+/// It reaches the webview as a user-visible error and the log file as a
+/// `warn`, so it stays fixed text: no URL, no credentials — the token rides
+/// in the `Cookie` header only and must never be formatted into messages
+/// (roadmap 010, task 005).
+pub(crate) fn terminal_error_message() -> String {
+    format!("Connection failed after {MAX_RECONNECT_ATTEMPTS} attempts")
 }
 
 async fn try_connect(
@@ -339,9 +349,11 @@ fn classify_payload(text: &str) -> ParsedPayload {
 #[cfg(test)]
 mod tests {
     use super::{
-        classify_payload, classify_read_error, resolve_sse_endpoint, ConnectResult, ParsedPayload,
-        ResolvedSseEndpoint,
+        classify_payload, classify_read_error, resolve_sse_endpoint, retry_loop,
+        terminal_error_message, ConnectResult, ParsedPayload, ResolvedSseEndpoint,
     };
+    use crate::events::ConnectionStatus;
+    use std::sync::{Arc, Mutex};
 
     #[test]
     fn read_error_after_connection_classified_as_established() {
@@ -469,6 +481,99 @@ mod tests {
                 access_token: Some("field-token".to_string()),
             }
         );
+    }
+
+    /* ------------------------------------------------------------------
+    Token redaction audit (roadmap 010, task 005)
+    ------------------------------------------------------------------ */
+
+    /// Sentinel token value of the connection under test: its reproduction
+    /// in a URL, message, or event payload is a leak.
+    const TOKEN_SENTINEL: &str = "secret-sentinel";
+
+    /// The token legitimately rides in the `Cookie` header channel, never in
+    /// the request URL: a token that arrives via the copied browser URL's
+    /// `?token=` query (or the configured field) must be stripped from the
+    /// resolved endpoint URL, so no error/log formatting of the URL can leak
+    /// it.
+    #[test]
+    fn resolved_endpoint_url_never_carries_the_token() {
+        let url_with_token = format!("http://127.0.0.1:10100/?token={TOKEN_SENTINEL}");
+
+        // Configured token takes priority; the query token is still dropped.
+        let resolved = resolve_sse_endpoint(&url_with_token, Some(TOKEN_SENTINEL));
+        assert!(
+            !resolved.url.contains(TOKEN_SENTINEL),
+            "resolved URL leaks the token: {}",
+            resolved.url
+        );
+        assert_eq!(resolved.access_token.as_deref(), Some(TOKEN_SENTINEL));
+
+        // URL-only token moves to the cookie channel as well.
+        let resolved = resolve_sse_endpoint(&url_with_token, None);
+        assert!(!resolved.url.contains(TOKEN_SENTINEL));
+        assert_eq!(resolved.access_token.as_deref(), Some(TOKEN_SENTINEL));
+
+        // Other query values survive next to the stripped token parameter.
+        let resolved = resolve_sse_endpoint(
+            &format!("http://127.0.0.1:10100/?channel=tts&token={TOKEN_SENTINEL}"),
+            None,
+        );
+        assert!(!resolved.url.contains(TOKEN_SENTINEL));
+        assert!(resolved.url.contains("channel=tts"));
+    }
+
+    /// The full status surface the retry loop produces for a connection
+    /// whose token is the sentinel (statuses go to the webview as payloads
+    /// and into the log as `info`/`warn` lines): neither the payload strings
+    /// nor the `Debug` formatting ever reproduces the token value.
+    #[tokio::test]
+    async fn retry_status_surface_is_sentinel_free_for_token_carrying_connection() {
+        // As in `run_with_retries`, the connect closure owns the URL (with
+        // the token in its query) and the token for `try_connect`.
+        let url = format!("http://127.0.0.1:10100/?token={TOKEN_SENTINEL}");
+        let access_token = Some(TOKEN_SENTINEL.to_string());
+        let connect_fn = move || {
+            let _ = (&url, &access_token);
+            async { ConnectResult::NotConnected }
+        };
+
+        let events: Arc<Mutex<Vec<ConnectionStatus>>> = Arc::new(Mutex::new(Vec::new()));
+        let emit = {
+            let events = Arc::clone(&events);
+            move |status: ConnectionStatus| {
+                events.lock().unwrap().push(status);
+            }
+        };
+
+        retry_loop(connect_fn, emit).await;
+
+        let ev = events.lock().unwrap();
+        assert!(!ev.is_empty());
+        for status in ev.iter() {
+            let payload = status.to_string();
+            assert!(
+                !payload.contains(TOKEN_SENTINEL),
+                "status payload leaks the token: {payload}"
+            );
+            let debug = format!("{status:?}");
+            assert!(
+                !debug.contains(TOKEN_SENTINEL),
+                "status Debug leaks the token: {debug}"
+            );
+        }
+
+        // The terminal error is the fixed text shared with the events tests;
+        // it names the attempt count, never request details.
+        let terminal = ev
+            .iter()
+            .find_map(|e| match e {
+                ConnectionStatus::Error(msg) => Some(msg.as_str()),
+                _ => None,
+            })
+            .expect("terminal Error after exhausted budget");
+        assert_eq!(terminal, terminal_error_message());
+        assert!(!terminal.contains("127.0.0.1"));
     }
 }
 

@@ -5195,6 +5195,7 @@ dependencies = [
  "tracing-subscriber",
  "url",
  "uuid",
+ "windows",
 ]
 
 [[package]]

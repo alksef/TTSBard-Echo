@@ -26,6 +26,24 @@ url = "2"
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
+[target.'cfg(windows)'.dependencies]
+# Windows-only API surface, kept to the minimum namespaces actually used:
+# - Win32_Security_Cryptography: DPAPI (CryptProtectData/CryptUnprotectData)
+#   for access-token storage in settings.json, ADR-0024; matches the
+#   cfg(windows)-gated crypto code in config/secret.rs.
+# - Win32_Foundation, Win32_Security, Win32_Security_Authorization,
+#   Win32_System_Threading: restricted DACLs for configuration files
+#   (SetNamedSecurityInfoW and friends) in config/acl.rs, roadmap 010
+#   task 006. The crate is not built on other platforms, matching the
+#   cfg(windows)-gated code in config/secret.rs and config/acl.rs.
+windows = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Security_Cryptography",
+    "Win32_System_Threading",
+] }
+
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]

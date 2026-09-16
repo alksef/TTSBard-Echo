@@ -2,8 +2,9 @@
    Styles Entry Point - ttsbard-echo
    ============================================================================ */
 
-/* Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Manrope:wght@500;600;700;800&display=swap');
+/* Fonts are local-only (strict CSP forbids remote sources); the stacks in
+   --font-sans/--font-mono fall back to system fonts. Self-hosting Manrope and
+   JetBrains Mono is a separate follow-up. */
 
 /* Design tokens and base styles (variables must come first) */
 @import './variables.css';

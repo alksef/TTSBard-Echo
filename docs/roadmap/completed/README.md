@@ -27,3 +27,12 @@ prerelease `v0.1.1` проверены в GitHub Actions, ссылки на пр
 критических composables и компонентов, два исправленных дефекта (утечка
 listeners в `useAppSettings`, отсутствие реальной защиты от double submit),
 шесть мутационных проверок — в [completion note](009-frontend-regression-safety.md).
+
+- [010 — Целостность и безопасность настроек](010-settings-integrity-and-secrets.md)
+
+Завершён 2026-09-15: атомарная запись конфигов с `.bak` и восстановлением
+после повреждения, схема `schema_version` с одноразовой DPAPI-миграцией
+токена ([ADR-0024](../../decisions/0024-roadmap-010-secret-storage.md)),
+redaction-аудит с сентинел-тестами, ACL на конфиг-файлы, CSP прод/dev;
+ручная E2E на реальном конфиге v0.1.0 — в
+[completion note](010-settings-integrity-and-secrets.md).
