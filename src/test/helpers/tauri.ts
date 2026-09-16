@@ -88,6 +88,8 @@ export const windowApi = {
   innerSize: vi.fn<() => Promise<{ width: number; height: number }>>(async () => ({ width: 700, height: 200 })),
   scaleFactor: vi.fn<() => Promise<number>>(async () => 1),
   setSize: vi.fn<(size: unknown) => Promise<void>>(async () => {}),
+  setMinSize: vi.fn<(size: unknown) => Promise<void>>(async () => {}),
+  setMaxSize: vi.fn<(size: unknown) => Promise<void>>(async () => {}),
   onResized: vi.fn<(handler: (event: { payload: { width: number; height: number } }) => void) => Promise<() => void>>(async () => () => {}),
 }
 

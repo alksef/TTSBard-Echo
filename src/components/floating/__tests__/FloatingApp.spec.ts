@@ -203,13 +203,21 @@ describe('FloatingApp appearance and theme sync', () => {
     const size = windowApi.setSize.mock.calls[0][0] as { width: number; height: number }
     expect(size.height).toBeGreaterThanOrEqual(64)
     expect(size.width).toBeGreaterThanOrEqual(300)
+    expect(windowApi.setMinSize).toHaveBeenCalled()
+    expect(windowApi.setMaxSize).toHaveBeenCalled()
+    const minSize = windowApi.setMinSize.mock.calls[windowApi.setMinSize.mock.calls.length - 1][0] as { width: number; height: number }
+    const maxSize = windowApi.setMaxSize.mock.calls[windowApi.setMaxSize.mock.calls.length - 1][0] as { width: number; height: number }
+    expect(minSize.height).toBe(size.height)
+    expect(maxSize.height).toBe(size.height)
+    expect(minSize.width).toBe(300)
+    expect(maxSize.width).toBe(10_000)
     expect(createdResizeObservers()).toHaveLength(1)
     expect(createdResizeObservers()[0].observe).toHaveBeenCalled()
     expect(windowApi.onResized).toHaveBeenCalledOnce()
     wrapper.unmount()
   })
 
-  it('preserves a manually resized width but restores content-driven height', async () => {
+  it('preserves a manually resized width while keeping content-driven height constrained', async () => {
     const wrapper = await mountFloatingApp()
     windowApi.setSize.mockClear()
     windowApi.innerSize.mockResolvedValue({ width: 860, height: 500 })
@@ -223,6 +231,10 @@ describe('FloatingApp appearance and theme sync', () => {
     const size = lastCall[0] as { width: number; height: number }
     expect(size.width).toBe(860)
     expect(size.height).toBe(64)
+    const minSize = windowApi.setMinSize.mock.calls[windowApi.setMinSize.mock.calls.length - 1][0] as { height: number }
+    const maxSize = windowApi.setMaxSize.mock.calls[windowApi.setMaxSize.mock.calls.length - 1][0] as { height: number }
+    expect(minSize.height).toBe(64)
+    expect(maxSize.height).toBe(64)
     wrapper.unmount()
   })
 })

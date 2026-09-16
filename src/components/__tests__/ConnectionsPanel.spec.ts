@@ -9,9 +9,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 import {
   emitTauriEvent,
-  invokeCalls,
   invokeReturns,
-  invokeRejects,
   windowApi,
 } from '@/test/helpers/tauri'
 import { connectionConfig, runtimeSnapshotDto } from '@/test/helpers/fixtures'
@@ -117,46 +115,6 @@ describe('ConnectionsPanel floating height', () => {
 
     // 6 cards * 60 + 80 = 440 exceeds the 4-card cap of 320.
     expect(lastSize()).toEqual({ width: 350, height: 320 })
-    wrapper.unmount()
-  })
-})
-
-describe('ConnectionsPanel diagnostics export', () => {
-  it('invokes export_diagnostics on click and shows the returned path', async () => {
-    invokeReturns(
-      'export_diagnostics',
-      'C:\\Users\\Al\\AppData\\Roaming\\ttsbard-echo\\diagnostics\\diagnostics-1726300000000.json',
-    )
-    const wrapper = await mountPanel()
-
-    await wrapper.find('button.export-action').trigger('click')
-    await flushPromises()
-
-    expect(invokeCalls('export_diagnostics')).toBe(1)
-    const info = wrapper.find('.panel-info')
-    expect(info.exists()).toBe(true)
-    expect(info.text()).toContain('Диагностика сохранена')
-    expect(info.text()).toContain('diagnostics-1726300000000.json')
-    wrapper.unmount()
-  })
-
-  it('shows an export failure in the action error line', async () => {
-    invokeRejects('export_diagnostics', 'Failed to write the diagnostics file')
-    const wrapper = await mountPanel()
-
-    await wrapper.find('button.export-action').trigger('click')
-    await flushPromises()
-
-    expect(wrapper.find('.panel-error').text()).toContain('Failed to write the diagnostics file')
-    expect(wrapper.find('.panel-info').exists()).toBe(false)
-    wrapper.unmount()
-  })
-
-  it('renders no export button in floating mode', async () => {
-    invokeReturns('export_diagnostics', 'unused')
-    const wrapper = await mountPanel({ floating: true })
-
-    expect(wrapper.find('button.export-action').exists()).toBe(false)
     wrapper.unmount()
   })
 })

@@ -20,6 +20,7 @@ let appearanceRequest = 0
 let resizeObserver: ResizeObserver | undefined
 let fitInProgress = false
 let fitAgain = false
+let lockedHeight: number | undefined
 const connectionCount = computed(() => connections.value.length)
 
 function applyAppearance() {
@@ -70,8 +71,20 @@ async function fitToContent() {
       const currentHeight = Math.round(physicalSize.height / scaleFactor)
       const contentHeight = Math.max(64, Math.min(2000, Math.ceil(content.getBoundingClientRect().height)))
 
-      // Horizontal resizing is user-controlled; vertical resizing is always
-      // corrected back to the height required by the current content.
+      // Keep native horizontal resizing, but make the content-driven height a
+      // real window constraint. Correcting the height from onResized lets the
+      // user start a vertical drag and causes a resize/snap-back feedback loop.
+      const minSize = new LogicalSize(300, contentHeight)
+      const maxSize = new LogicalSize(10_000, contentHeight)
+      if (lockedHeight === undefined || contentHeight >= lockedHeight) {
+        await window.setMaxSize(maxSize)
+        await window.setMinSize(minSize)
+      } else {
+        await window.setMinSize(minSize)
+        await window.setMaxSize(maxSize)
+      }
+      lockedHeight = contentHeight
+
       if (Math.abs(currentHeight - contentHeight) > 1) {
         await window.setSize(new LogicalSize(width, contentHeight))
       }

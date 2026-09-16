@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Globe, Pencil, Plus, Plug, Square, Trash2, Loader2, Download } from 'lucide-vue-next'
-import { invoke } from '@tauri-apps/api/core'
+import { Globe, Pencil, Plus, Plug, Square, Trash2, Loader2 } from 'lucide-vue-next'
 import ConnectionFormDialog from './connections/ConnectionFormDialog.vue'
 import { useConnections } from '@/composables/useConnections'
 import { connectionStatusLabel } from '@/lib/connectionStatusLabels'
@@ -24,8 +23,6 @@ const editingConnection = ref<ConnectionConfig | null>(null)
 const busyId = ref<string | null>(null)
 const saving = ref(false)
 const actionError = ref<string | null>(null)
-const actionInfo = ref<string | null>(null)
-const exporting = ref(false)
 
 const visibleError = computed(() => error.value || actionError.value)
 
@@ -48,23 +45,6 @@ function openAdd() {
 function openEdit(config: ConnectionConfig) {
   editingConnection.value = config
   dialogOpen.value = true
-}
-
-// Only runs on this explicit user action — the backend never exports on its
-// own (roadmap 011, task 008). The result is the written file path.
-async function exportDiagnostics() {
-  if (exporting.value) return
-  exporting.value = true
-  actionError.value = null
-  actionInfo.value = null
-  try {
-    const path = await invoke<string>('export_diagnostics')
-    actionInfo.value = `Диагностика сохранена: ${path}`
-  } catch (reason) {
-    actionError.value = reason instanceof Error ? reason.message : String(reason)
-  } finally {
-    exporting.value = false
-  }
 }
 
 async function save(config: ConnectionConfig) {
@@ -121,17 +101,6 @@ async function deleteConnection(id: string) {
         <h1>Подключения</h1>
       </div>
       <div class="header-actions">
-        <button
-          class="secondary-action export-action"
-          type="button"
-          :disabled="exporting"
-          aria-label="Экспорт диагностики"
-          title="Экспорт диагностики"
-          @click="exportDiagnostics"
-        >
-          <Download :size="15" />
-          Экспорт диагностики
-        </button>
         <button class="primary-action icon-action" type="button" aria-label="Добавить подключение" title="Добавить подключение" @click="openAdd">
           <Plus :size="16" />
         </button>
@@ -139,7 +108,6 @@ async function deleteConnection(id: string) {
     </header>
 
     <p v-if="visibleError" class="panel-error">{{ visibleError }}</p>
-    <p v-if="actionInfo" class="panel-info">{{ actionInfo }}</p>
     <div v-if="loading && connections.length === 0" class="empty-state">Загрузка подключений…</div>
     <div v-else-if="connections.length === 0" class="empty-state">
       <Globe :size="42" />
@@ -206,7 +174,6 @@ h2 { font-size: .95rem; }
 .secondary-action { background: var(--color-bg-field); color: var(--color-text-primary); border: 1px solid var(--color-border); }
 .panel-error { margin: 0; padding: .75rem 1rem; color: var(--color-danger); background: rgba(var(--rgb-danger), .1); border: 1px solid rgba(var(--rgb-danger), .25); border-radius: 8px; }
 .header-actions { display: flex; align-items: center; gap: .5rem; }
-.panel-info { margin: 0; padding: .75rem 1rem; color: var(--color-success); background: rgba(var(--rgb-success), .1); border: 1px solid rgba(var(--rgb-success), .25); border-radius: 8px; word-break: break-all; }
 .empty-state { min-height: 240px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .65rem; color: var(--color-text-muted); text-align: center; }
 .empty-state svg { opacity: .55; }
 .empty-state strong { color: var(--color-text-primary); }
