@@ -30,6 +30,8 @@ npm run dev
 npm run build
 npm test
 scripts/cargo.ps1 --% fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+scripts/cargo.ps1 --% clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings
+scripts/cargo.ps1 --% test --manifest-path src-tauri/Cargo.toml --locked --all-targets
 ```
 
 `npm test` проверяет IPC- и settings-контракты и запускает frontend unit-тесты.
@@ -49,16 +51,17 @@ npm run tauri build
 - `package.json`;
 - `package-lock.json`;
 - `src-tauri/Cargo.toml`;
+- `src-tauri/Cargo.lock`;
 - `src-tauri/tauri.conf.json`;
 - `src/version.ts`.
 
 Для синхронного обновления версии используйте:
 
 ```powershell
-npm run version -- 0.1.0
+npm run version -- X.Y.Z
 ```
 
-Релизные теги имеют формат `vX.Y.Z`, например `v0.1.0`. Workflow `build.yml` собирает Windows-пакеты и создаёт GitHub Release для тегов `v*`.
+Релизные теги имеют формат `vX.Y.Z`, например `v0.2.0`. Workflow `build.yml` собирает Windows-пакеты и создаёт GitHub Release для тегов `v*`.
 
 ## CI
 

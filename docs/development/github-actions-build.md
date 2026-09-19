@@ -35,17 +35,20 @@ Release workflow запускается для push тега `v*` и вручн�
 Перед тегом синхронизируйте версию штатным скриптом, проверьте diff и сборку:
 
 ```powershell
-node scripts/set-version.cjs 0.14.0
+node scripts/set-version.cjs X.Y.Z
 npm run build
-scripts/cargo.ps1 --% check --manifest-path src-tauri/Cargo.toml --locked
+npm test
+scripts/cargo.ps1 --% fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+scripts/cargo.ps1 --% clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --all-features -- -D warnings
+scripts/cargo.ps1 --% test --manifest-path src-tauri/Cargo.toml --locked --all-targets
 ```
 
 После зелёного push-запуска CI создайте и отправьте тег, указывающий на тот же
 commit:
 
 ```powershell
-git tag v0.14.0
-git push origin v0.14.0
+git tag vX.Y.Z
+git push origin vX.Y.Z
 ```
 
 В release workflow версия извлекается из имени тега и повторно применяется через
