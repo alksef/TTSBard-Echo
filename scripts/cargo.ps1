@@ -137,14 +137,32 @@ if (-not $vcvars) {
 if ($vcvars) {
     # Run vcvars64.bat in cmd, dump the resulting environment, and re-apply it here.
     # (`call` so vcvars' own SET statements propagate; output is captured, not shown.)
+    $prePath = @($env:PATH -split ';' | Where-Object { $_ })
+    $prePathSeen = @{}
+    foreach ($entry in $prePath) { $prePathSeen[$entry.TrimEnd('\').ToLowerInvariant()] = $true }
     $envOutput = & "$env:ComSpec" /c "`"$vcvars`" >nul 2>&1 && set" 2>&1
     foreach ($line in $envOutput) {
         if ($line -match '^([^=]+)=(.*)$') {
             $name = $Matches[1]
             $value = $Matches[2]
-            # Keep our hardened PATH (rustup proxy first) instead of vcvars' order.
-            if ($name -ieq 'PATH') { continue }
-            [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+            if ($name -ieq 'PATH') {
+                # Merge, don't drop. The other vcvars variables (VCINSTALLDIR, LIB,
+                # ...) tell rustc this is a VS developer environment, in which case
+                # it resolves `link.exe` from PATH. Keeping those variables while
+                # discarding vcvars' PATH leaves the real linker unreachable and
+                # rustc falls back to whatever link.exe comes first on PATH (Git's
+                # coreutils link.exe on CI runners). Order below: rustup proxy first
+                # (shadowing fix), then the directories vcvars added (MSVC bin),
+                # then the previous PATH.
+                $added = @($value -split ';' | Where-Object {
+                    $_ -and -not $prePathSeen.ContainsKey($_.TrimEnd('\').ToLowerInvariant())
+                })
+                $env:PATH = (@($rustBinDir) + $added + ($prePath | Where-Object {
+                    $_.TrimEnd('\') -ne $rustBinDir.TrimEnd('\')
+                })) -join ';'
+            } else {
+                [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+            }
         }
     }
 }

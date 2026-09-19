@@ -214,14 +214,28 @@ if (-not $vcvars) {
 }
 
 if ($vcvars) {
+    $prePath = @($env:PATH -split ';' | Where-Object { $_ })
+    $prePathSeen = @{}
+    foreach ($entry in $prePath) { $prePathSeen[$entry.TrimEnd('\').ToLowerInvariant()] = $true }
     $envOutput = & "$env:ComSpec" /c "`"$vcvars`" >nul 2>&1 && set" 2>&1
     foreach ($line in $envOutput) {
         if ($line -match '^([^=]+)=(.*)$') {
             $name = $Matches[1]
             $value = $Matches[2]
-            # Keep our hardened PATH (rustup proxy first) instead of vcvars' order.
-            if ($name -ieq 'PATH') { continue }
-            [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+            if ($name -ieq 'PATH') {
+                # Merge, don't drop (same rationale as cargo.ps1): the other vcvars
+                # variables tell rustc this is a VS developer environment, so
+                # link.exe must be reachable on PATH — otherwise rustc falls back
+                # to whatever link.exe comes first (e.g. Git's coreutils one).
+                $added = @($value -split ';' | Where-Object {
+                    $_ -and -not $prePathSeen.ContainsKey($_.TrimEnd('\').ToLowerInvariant())
+                })
+                $env:PATH = (@($rustBinDir) + $added + ($prePath | Where-Object {
+                    $_.TrimEnd('\') -ne $rustBinDir.TrimEnd('\')
+                })) -join ';'
+            } else {
+                [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+            }
         }
     }
 }
