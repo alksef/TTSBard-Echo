@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Settings2, Palette } from 'lucide-vue-next'
+import { Settings, Palette } from 'lucide-vue-next'
 import SettingsGeneral from './settings/SettingsGeneral.vue'
 import SettingsInterface from './settings/SettingsInterface.vue'
 
@@ -12,7 +12,7 @@ const activeTab = ref<TabType>('general')
   <div class="settings-panel">
     <div class="settings-tabs" role="tablist" aria-label="Настройки">
       <button class="settings-tab" :class="{ active: activeTab === 'general' }" type="button" role="tab" :aria-selected="activeTab === 'general'" @click="activeTab = 'general'">
-        <Settings2 :size="18" /><span>Общие</span>
+        <Settings :size="18" /><span>Общие</span>
       </button>
       <button class="settings-tab" :class="{ active: activeTab === 'interface' }" type="button" role="tab" :aria-selected="activeTab === 'interface'" @click="activeTab = 'interface'">
         <Palette :size="18" /><span>Интерфейс</span>
