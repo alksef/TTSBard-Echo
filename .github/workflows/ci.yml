@@ -42,14 +42,17 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
       - name: Run clippy
-        shell: pwsh
+        working-directory: src-tauri
         env:
           TAURI_CONFIG: '{"bundle":{"resources":null}}'
-        run: >-
-          & .\scripts\cargo.ps1 @('clippy', '--manifest-path',
-          'src-tauri/Cargo.toml', '--locked', '--all-targets', '--all-features',
-          '--', '-D', 'warnings')
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
 
   check-types:
     name: Check frontend and contracts
@@ -78,13 +81,17 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
       - name: Run tests
-        shell: pwsh
+        working-directory: src-tauri
         env:
           TAURI_CONFIG: '{"bundle":{"resources":null}}'
-        run: >-
-          & .\scripts\cargo.ps1 @('test', '--manifest-path',
-          'src-tauri/Cargo.toml', '--locked', '--all-targets')
+        run: cargo test --locked --all-targets
 
   bundle-smoke:
     name: Tauri bundle smoke
@@ -102,5 +109,4 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Build Tauri debug app without installers
-        shell: pwsh
-        run: .\scripts\build.ps1 -Mode debug
+        run: npm run tauri -- build --debug --no-bundle
