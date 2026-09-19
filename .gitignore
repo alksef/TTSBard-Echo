@@ -45,8 +45,3 @@ docs/works
 notes/
 promts/
 .scripts/
-scripts/build-debug.bat
-scripts/build-release.bat
-scripts/build.local.example.psd1
-scripts/build.ps1
-scripts/cargo.ps1

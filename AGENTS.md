@@ -17,5 +17,7 @@ files under `docs/plans/` are not current instructions.
 Run frontend checks with `npm test` and `npm run build`. On Windows, run the
 complete Rust gate through `scripts/cargo.ps1`: fmt with `--all -- --check`,
 Clippy with `--locked --all-targets --all-features -- -D warnings`, and tests
-with `--locked --all-targets`. CI uses bare Cargo in clean runners. Keep
-`.work/`, build outputs, local configuration, and secrets out of commits.
+with `--locked --all-targets`. CI invokes the same `scripts/cargo.ps1` and
+`scripts/build.ps1` wrappers, so keep them committed and machine-agnostic;
+per-machine values live in `scripts/build.local.psd1`, which stays ignored.
+Keep `.work/`, build outputs, local configuration, and secrets out of commits.

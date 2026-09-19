@@ -47,12 +47,17 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      # Echo enables the `custom-protocol` feature by default, so tauri-codegen
+      # embeds frontendDist at compile time and clippy/tests need a built dist/.
       - run: npm run build
       - name: Run clippy
-        working-directory: src-tauri
+        shell: pwsh
         env:
           TAURI_CONFIG: '{"bundle":{"resources":null}}'
-        run: cargo clippy --locked --all-targets --all-features -- -D warnings
+        run: >-
+          & .\scripts\cargo.ps1 @('clippy', '--manifest-path',
+          'src-tauri/Cargo.toml', '--locked', '--all-targets', '--all-features',
+          '--', '-D', 'warnings')
 
   check-types:
     name: Check frontend and contracts
@@ -86,12 +91,15 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      # See check-clippy: a built dist/ is required at compile time.
       - run: npm run build
       - name: Run tests
-        working-directory: src-tauri
+        shell: pwsh
         env:
           TAURI_CONFIG: '{"bundle":{"resources":null}}'
-        run: cargo test --locked --all-targets
+        run: >-
+          & .\scripts\cargo.ps1 @('test', '--manifest-path',
+          'src-tauri/Cargo.toml', '--locked', '--all-targets')
 
   bundle-smoke:
     name: Tauri bundle smoke
@@ -109,4 +117,5 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Build Tauri debug app without installers
-        run: npm run tauri -- build --debug --no-bundle
+        shell: pwsh
+        run: .\scripts\build.ps1 -Mode debug
