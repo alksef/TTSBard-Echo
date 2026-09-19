@@ -112,7 +112,7 @@ async function deleteConnection(id: string) {
     <div v-else-if="connections.length === 0" class="empty-state">
       <Globe :size="42" />
       <strong>Подключений пока нет</strong>
-      <span>Добавьте SSE-сервер, чтобы начать получать события.</span>
+      <span>Добавьте подключение к TTSBard, чтобы получать сообщения.</span>
       <button v-if="!floating" class="secondary-action" type="button" @click="openAdd">Добавить подключение</button>
     </div>
 

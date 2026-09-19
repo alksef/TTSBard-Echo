@@ -47,7 +47,7 @@ pub fn init_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     info!("Initializing system tray");
     TrayIconBuilder::with_id("main")
         .icon(icon)
-        .tooltip("ttsbard-echo")
+        .tooltip("TTSBard Echo")
         .menu(&menu)
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {

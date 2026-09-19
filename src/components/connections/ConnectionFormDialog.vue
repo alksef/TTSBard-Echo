@@ -5,7 +5,7 @@ import type { ConnectionConfig } from '@/types/settings'
 import type { ConnectionTestResultDto } from '@/types/types'
 import { connectionErrorKindLabel } from '@/lib/connectionStatusLabels'
 
-const DEFAULT_CONNECTION_URL = 'http://127.0.0.1:10100/sse'
+const DEFAULT_CONNECTION_URL = ''
 
 const props = withDefaults(
   defineProps<{ open: boolean; connection: ConnectionConfig | null; saving?: boolean }>(),
@@ -93,7 +93,7 @@ async function submit() {
   let parsed: URL
   try {
     parsed = new URL(trimmedUrl)
-    if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) throw new Error('Нужен полный HTTP(S)-URL с адресом сервера')
+    if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) throw new Error('Нужен полный внешний адрес TTSBard')
   } catch (reason) {
     formError.value = reason instanceof Error ? reason.message : 'Введите корректный URL'
     return
@@ -127,8 +127,8 @@ async function submit() {
     <div v-if="open" class="dialog-backdrop" @click.self="close">
       <section class="dialog" role="dialog" aria-modal="true" aria-label="Настройка подключения">
         <form class="dialog-body" @submit.prevent="submit">
-          <label>Название<input v-model="name" autofocus maxlength="256" placeholder="Мой SSE-сервер" /></label>
-          <label>URL<input v-model="url" type="url" :placeholder="DEFAULT_CONNECTION_URL" /></label>
+          <label>Название<input v-model="name" autofocus maxlength="256" placeholder="Мой TTSBard" /></label>
+          <label>Внешний адрес<input v-model="url" type="url" placeholder="Вставьте внешний адрес из TTSBard" /></label>
           <label>Токен доступа <span>(необязательно)</span><input v-model="token" type="password" autocomplete="off" placeholder="Токен для авторизации" /></label>
           <div class="test-row">
             <button class="test-action" type="button" :disabled="locked || testing" @click="runTest">{{ testing ? 'Проверка…' : 'Проверить' }}</button>

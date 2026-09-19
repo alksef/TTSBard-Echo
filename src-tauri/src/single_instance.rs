@@ -42,11 +42,11 @@ const WM_COPYDATA_SHOW: usize = 0x54545342; // "TTSB"
 /// uses it as the acknowledgement.
 const SHOW_ACK: usize = 1;
 
-const MESSAGE_BOX_CAPTION: &str = "ttsbard Echo";
+const MESSAGE_BOX_CAPTION: &str = "TTSBard Echo";
 const MSG_CANNOT_CONTACT: &str =
-    "Не удалось связаться с уже запущенной копией ttsbard Echo. Закройте предыдущее окно приложения и запустите снова.";
+    "Не удалось связаться с уже запущенной копией TTSBard Echo. Закройте предыдущее окно приложения и запустите снова.";
 const MSG_CANNOT_INIT: &str =
-    "Не удалось инициализировать проверку единственного экземпляра ttsbard Echo.";
+    "Не удалось инициализировать проверку единственного экземпляра TTSBard Echo.";
 
 /// Set when a show request arrives before the callback is registered. The
 /// callback registration consumes it (see `register_show_callback`).
@@ -122,7 +122,7 @@ pub fn acquire_lock_or_exit() {
     let mutex = match unsafe { CreateMutexW(None, true, PCWSTR(mutf16(MUTEX_NAME).as_ptr())) } {
         Ok(handle) => handle,
         Err(err) => {
-            eprintln!("ttsbard Echo: не удалось создать single-instance mutex: {err}");
+            eprintln!("TTSBard Echo: не удалось создать single-instance mutex: {err}");
             show_message_box(MSG_CANNOT_INIT);
             std::process::exit(1);
         }
@@ -136,7 +136,7 @@ pub fn acquire_lock_or_exit() {
         match deliver_show_request(WINDOW_CLASS, WINDOW_NAME, DeliveryTiming::default()) {
             Ok(()) => std::process::exit(0),
             Err(err) => {
-                eprintln!("ttsbard Echo: не удалось связаться с уже запущенной копией: {err}");
+                eprintln!("TTSBard Echo: не удалось связаться с уже запущенной копией: {err}");
                 show_message_box(MSG_CANNOT_CONTACT);
                 std::process::exit(1);
             }
@@ -149,7 +149,7 @@ pub fn acquire_lock_or_exit() {
     let _keep_alive = mutex;
 
     if let Err(err) = create_receiver_window(WINDOW_CLASS, WINDOW_NAME) {
-        eprintln!("ttsbard Echo: не удалось инициализировать single-instance приёмник: {err}");
+        eprintln!("TTSBard Echo: не удалось инициализировать single-instance приёмник: {err}");
         show_message_box(MSG_CANNOT_INIT);
         std::process::exit(1);
     }

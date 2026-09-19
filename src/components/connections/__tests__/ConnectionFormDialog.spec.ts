@@ -37,7 +37,7 @@ describe('add mode', () => {
 
     const inputs = wrapper.findAll('input')
     expect((inputs[0].element as HTMLInputElement).value).toBe('')
-    expect((inputs[1].element as HTMLInputElement).value).toBe('http://127.0.0.1:10100/sse')
+    expect((inputs[1].element as HTMLInputElement).value).toBe('')
     expect(wrapper.find('button[type="submit"]').text()).toBe('Добавить')
   })
 
@@ -124,7 +124,7 @@ describe('cancel and reset', () => {
     await flushPromises()
 
     const values = (await wrapper.findAll('input')).map((i) => (i.element as HTMLInputElement).value)
-    expect(values).toEqual(['', 'http://127.0.0.1:10100/sse', ''])
+    expect(values).toEqual(['', '', ''])
   })
 })
 
@@ -217,6 +217,7 @@ describe('endpoint probe (Проверить)', () => {
   it('falls back to the backend message for an unknown category', async () => {
     onInvoke('test_connection', () => ({ ok: false, error_kind: 'mystery', error_message: 'Novel upstream failure' }))
     const wrapper = await openDialog()
+    await (await wrapper.findAll('input'))[1].setValue('http://echo.example/sse')
 
     await wrapper.find('button.test-action').trigger('click')
     await flushPromises()
@@ -227,6 +228,7 @@ describe('endpoint probe (Проверить)', () => {
   it('reports an IPC-level failure inline without emitting save', async () => {
     onInvoke('test_connection', () => { throw new Error('ipc refused') })
     const wrapper = await openDialog()
+    await (await wrapper.findAll('input'))[1].setValue('http://echo.example/sse')
 
     await wrapper.find('button.test-action').trigger('click')
     await flushPromises()
@@ -238,6 +240,7 @@ describe('endpoint probe (Проверить)', () => {
   it('disables the button and blocks re-entry while the probe is in flight', async () => {
     const pending = invokePending('test_connection')
     const wrapper = await openDialog()
+    await (await wrapper.findAll('input'))[1].setValue('http://echo.example/sse')
 
     await wrapper.find('button.test-action').trigger('click')
     await flushPromises()
@@ -269,6 +272,7 @@ describe('endpoint probe (Проверить)', () => {
   it('clears a stale result on reopen', async () => {
     onInvoke('test_connection', () => ({ ok: true, latency_ms: 5 }))
     const wrapper = await openDialog()
+    await (await wrapper.findAll('input'))[1].setValue('http://echo.example/sse')
     await wrapper.find('button.test-action').trigger('click')
     await flushPromises()
     expect(wrapper.find('.test-result').exists()).toBe(true)

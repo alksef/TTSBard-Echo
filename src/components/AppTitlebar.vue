@@ -88,7 +88,7 @@ onUnmounted(() => unlistenFns.splice(0).forEach(unlisten => unlisten()))
 
 <template>
   <header class="app-titlebar" data-tauri-drag-region @mousedown="startDrag">
-    <span class="titlebar-brand" data-tauri-drag-region>Echo</span>
+    <span class="titlebar-brand" data-tauri-drag-region>TTSBard Echo</span>
     <div class="titlebar-controls">
       <button class="titlebar-button clickthrough-button" :class="{ active: clickthroughEnabled }" :disabled="clickthroughPending"
         :aria-label="clickthroughLabel" :title="clickthroughLabel" :aria-pressed="clickthroughEnabled" @mousedown.stop @click="toggleClickthrough">

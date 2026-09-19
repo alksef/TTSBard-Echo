@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2.0.0",
-  "productName": "ttsbard-echo",
+  "productName": "TTSBard Echo",
   "version": "0.1.0",
   "identifier": "com.ttsbard.echo",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "ttsbard-echo",
+        "title": "TTSBard Echo",
         "width": 800,
         "height": 350,
         "minWidth": 730,
@@ -25,7 +25,7 @@
       },
       {
         "label": "floating",
-        "title": "Connections",
+        "title": "TTSBard Echo",
         "url": "floating.html",
         "width": 350,
         "height": 200,
