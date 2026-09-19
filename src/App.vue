@@ -15,11 +15,11 @@ useThemeWatcher(appSettings)
 
 // App state
 const currentPanel = ref<Panel>('connections')
-const sidebarWidth = ref(180)
+const sidebarCollapsed = ref(false)
 
 // Listen for sidebar collapse changes
 function onSidebarCollapse(collapsed: boolean) {
-  sidebarWidth.value = collapsed ? 64 : 180
+  sidebarCollapsed.value = collapsed
 }
 
 function setPanel(panel: Panel) {
@@ -28,7 +28,7 @@ function setPanel(panel: Panel) {
 </script>
 
 <template>
-  <div class="app" :class="{ 'sidebar-collapsed': sidebarWidth === 64 }">
+  <div class="app" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
     <AppTitlebar />
     <div class="content-wrapper">
       <Sidebar :panel="currentPanel" @set-panel="setPanel" @collapse="onSidebarCollapse" />
@@ -76,7 +76,7 @@ function setPanel(panel: Panel) {
   content: '';
   position: fixed;
   top: 0;
-  left: 180px;
+  left: var(--echo-sidebar-expanded);
   right: 0;
   bottom: 0;
   background-image: var(--grid-pattern);
@@ -90,6 +90,6 @@ function setPanel(panel: Panel) {
 
 /* Adjust grid when sidebar is collapsed */
 .sidebar-collapsed .main-content::before {
-  left: 64px;
+  left: var(--echo-sidebar-collapsed);
 }
 </style>

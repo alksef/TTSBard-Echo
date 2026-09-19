@@ -118,9 +118,9 @@ onUnmounted(() => unlistenFns.splice(0).forEach(unlisten => unlisten()))
   border-bottom: 1px solid var(--color-border);
 }
 .titlebar-brand { font-size: .8rem; font-weight: 700; letter-spacing: .06em; }
-.titlebar-controls { display: flex; align-items: center; gap: .2rem; }
+.titlebar-controls { display: flex; align-items: center; gap: .1rem; }
 .titlebar-button { width: 30px; height: 26px; display: grid; place-items: center; border-radius: 5px; color: var(--color-text-secondary); }
-.clickthrough-button { margin-right: .45rem; }
+.clickthrough-button { margin-right: .25rem; }
 .titlebar-button:hover { background: var(--color-bg-field-hover); color: var(--color-text-primary); }
 .titlebar-button.active { color: var(--color-accent); }
 .titlebar-button:disabled { cursor: wait; opacity: .5; }

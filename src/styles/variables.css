@@ -26,6 +26,6 @@
 /* Echo shell tokens. Keep these separate from the reference semantic palette. */
 :root {
   --echo-titlebar-height: 36px;
-  --echo-sidebar-expanded: 180px;
-  --echo-sidebar-collapsed: 64px;
+  --echo-sidebar-expanded: 200px;
+  --echo-sidebar-collapsed: 70px;
 }

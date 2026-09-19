@@ -58,7 +58,7 @@ describe('general setting persistence', () => {
   it('renders a successful save as success', async () => {
     invokeReturns('set_logging_enabled', null)
     const wrapper = mountSettings()
-    const checkbox = wrapper.findAll('input[type="checkbox"]')[1]
+    const checkbox = wrapper.findAll('input[type="checkbox"]')[2]
 
     await checkbox.trigger('change')
     await flushPromises()
@@ -69,7 +69,7 @@ describe('general setting persistence', () => {
   it('restores the capture setting when persistence fails', async () => {
     invokeRejects('set_exclude_from_capture', new Error('capture write failed'))
     const wrapper = mountSettings()
-    const checkbox = wrapper.findAll('input[type="checkbox"]')[2]
+    const checkbox = wrapper.findAll('input[type="checkbox"]')[1]
 
     expect((checkbox.element as HTMLInputElement).checked).toBe(false)
     await checkbox.trigger('change')
@@ -77,5 +77,16 @@ describe('general setting persistence', () => {
 
     expect((checkbox.element as HTMLInputElement).checked).toBe(false)
     expect(wrapper.text()).toContain('capture write failed')
+  })
+
+  it('groups settings into meaningful sections', () => {
+    const wrapper = mountSettings()
+
+    expect(wrapper.findAll('.section-title').map(title => title.text())).toEqual([
+      'Поведение окон',
+      'Диагностика',
+      'Сообщения',
+    ])
+    expect(wrapper.findAll('.settings-section')).toHaveLength(3)
   })
 })

@@ -146,9 +146,9 @@ async function quitApp() {
 
 <style scoped>
 .sidebar {
-  flex: 0 0 180px;
-  width: 180px;
-  min-width: 180px;
+  flex: 0 0 var(--echo-sidebar-expanded);
+  width: var(--echo-sidebar-expanded);
+  min-width: var(--echo-sidebar-expanded);
   position: relative;
   /* Clip the collapse control at the sidebar edge like app-tts-v2. */
   overflow: hidden;
@@ -176,9 +176,9 @@ async function quitApp() {
 }
 
 .sidebar-collapsed {
-  flex-basis: 64px;
-  width: 64px;
-  min-width: 64px;
+  flex-basis: var(--echo-sidebar-collapsed);
+  width: var(--echo-sidebar-collapsed);
+  min-width: var(--echo-sidebar-collapsed);
 }
 
 /* Floating collapse button positioned on right edge of sidebar */
